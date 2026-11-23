@@ -10,6 +10,7 @@ on:
       - "global.json"
       - "nuget.config"
       - "patches/**"
+      - "ryu/**"
       - ".github/workflows/ryujinx-source-audit.yml"
 
 permissions:
@@ -52,6 +53,15 @@ jobs:
           test -s "$SOURCE_REPO_ROOT/Directory.Packages.props"
           test -s "$SOURCE_REPO_ROOT/global.json"
           echo "Restored central package versions and .NET SDK metadata beside original src/."
+
+      - name: Inject Android Vulkan surface implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan"
+          cp ryu/src/Ryujinx.Graphics.Vulkan/AndroidVulkanSurface.cs "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/AndroidVulkanSurface.cs"
+          grep -q "VK_KHR_android_surface" "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/AndroidVulkanSurface.cs"
+          echo "Injected Android ANativeWindow Vulkan surface implementation."
 
       - name: Build original HLE and Vulkan projects (baseline)
         shell: bash
