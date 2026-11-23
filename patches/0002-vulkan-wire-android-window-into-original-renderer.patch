@@ -1,0 +1,22 @@
+--- a/Ryujinx.Graphics.Vulkan/VulkanRenderer.cs
++++ b/Ryujinx.Graphics.Vulkan/VulkanRenderer.cs
+@@ -102,6 +102,19 @@
+ 
+         public event EventHandler<ScreenCaptureImageInfo> ScreenCaptured;
+ 
++        /// <summary>
++        /// Creates the original Ryujinx Vulkan renderer using an Android ANativeWindow.
++        /// The Android host must keep the native window valid for the lifetime of this renderer.
++        /// </summary>
++        public VulkanRenderer(Vk api, IntPtr androidNativeWindow, string preferredGpuId)
++            : this(
++                api,
++                (instance, vk) => AndroidVulkanSurface.Create(instance, vk, androidNativeWindow),
++                AndroidVulkanSurface.RequiredInstanceExtensions,
++                preferredGpuId)
++        {
++        }
++
+         public VulkanRenderer(Vk api, Func<Instance, Vk, SurfaceKHR> surfaceFunc, Func<string[]> requiredExtensionsFunc, string preferredGpuId)
+         {
+             _getSurface = surfaceFunc;
