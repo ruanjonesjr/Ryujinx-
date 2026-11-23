@@ -72,7 +72,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          tar -czf audit/ryujinx-source-review.tar.gz -C "$RYUJINX_SOURCE_ROOT" src
+          tar -czf "$PWD/audit/ryujinx-source-review.tar.gz" -C "$RYUJINX_SOURCE_ROOT" .
 
       - name: Upload source audit and review snapshot
         uses: actions/upload-artifact@v4
