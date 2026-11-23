@@ -6,6 +6,9 @@ on:
     branches: [main]
     paths:
       - "ryujinx-mirror-mirror-master.zip"
+      - "Directory.Packages.props"
+      - "global.json"
+      - "nuget.config"
       - ".github/workflows/ryujinx-source-audit.yml"
 
 permissions:
@@ -36,6 +39,30 @@ jobs:
           ROOT="${ROOT%/Ryujinx.HLE/Ryujinx.HLE.csproj}"
           echo "RYUJINX_SOURCE_ROOT=$ROOT" >> "$GITHUB_ENV"
           echo "Original source root: $ROOT"
+
+      - name: Restore original Ryujinx build metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_REPO_ROOT="$(dirname "$RYUJINX_SOURCE_ROOT")"
+          cp Directory.Packages.props "$SOURCE_REPO_ROOT/Directory.Packages.props"
+          cp global.json "$SOURCE_REPO_ROOT/global.json"
+          cp nuget.config "$SOURCE_REPO_ROOT/nuget.config"
+          test -s "$SOURCE_REPO_ROOT/Directory.Packages.props"
+          test -s "$SOURCE_REPO_ROOT/global.json"
+          echo "Restored central package versions and .NET SDK metadata beside original src/."
+
+      - name: Build original HLE and Vulkan projects (baseline)
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_REPO_ROOT="$(dirname "$RYUJINX_SOURCE_ROOT")"
+          cd "$SOURCE_REPO_ROOT"
+          dotnet --info
+          dotnet restore "$RYUJINX_SOURCE_ROOT/Ryujinx.HLE/Ryujinx.HLE.csproj"
+          dotnet build "$RYUJINX_SOURCE_ROOT/Ryujinx.HLE/Ryujinx.HLE.csproj" --no-restore --configuration Release
+          dotnet restore "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/Ryujinx.Graphics.Vulkan.csproj"
+          dotnet build "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/Ryujinx.Graphics.Vulkan.csproj" --no-restore --configuration Release
 
       - name: Inventory original projects and Android blockers
         shell: bash
