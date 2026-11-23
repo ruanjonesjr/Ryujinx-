@@ -63,7 +63,17 @@ jobs:
           grep -q "VK_KHR_android_surface" "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/AndroidVulkanSurface.cs"
           echo "Injected Android ANativeWindow Vulkan surface implementation."
 
-      - name: Build original HLE and Vulkan projects (baseline)
+      - name: Patch original VulkanRenderer for Android ANativeWindow
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_REPO_ROOT="$(dirname "$RYUJINX_SOURCE_ROOT")"
+          cd "$SOURCE_REPO_ROOT"
+          patch --batch --forward -p1 < "$GITHUB_WORKSPACE/patches/0002-vulkan-wire-android-window-into-original-renderer.patch"
+          grep -q "IntPtr androidNativeWindow" "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/VulkanRenderer.cs"
+          echo "Original VulkanRenderer now has an Android ANativeWindow constructor."
+
+      - name: Build original HLE and Vulkan projects (Android surface integration)
         shell: bash
         run: |
           set -euo pipefail
