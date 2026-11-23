@@ -1,5 +1,5 @@
---- a/Ryujinx.Graphics.Vulkan/VulkanRenderer.cs
-+++ b/Ryujinx.Graphics.Vulkan/VulkanRenderer.cs
+--- a/src/Ryujinx.Graphics.Vulkan/VulkanRenderer.cs
++++ b/src/Ryujinx.Graphics.Vulkan/VulkanRenderer.cs
 @@ -102,6 +102,19 @@
  
          public event EventHandler<ScreenCaptureImageInfo> ScreenCaptured;
