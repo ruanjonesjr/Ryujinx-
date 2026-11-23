@@ -1,0 +1,77 @@
+name: Ryujinx source audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "ryujinx-mirror-mirror-master.zip"
+      - ".github/workflows/ryujinx-source-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-original-source:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify and extract source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s ryujinx-mirror-mirror-master.zip
+          unzip -tq ryujinx-mirror-mirror-master.zip
+          mkdir -p source
+          unzip -q ryujinx-mirror-mirror-master.zip -d source
+          ROOT="$(find "$PWD/source" -type f -path '*/Ryujinx.HLE/Ryujinx.HLE.csproj' -print -quit)"
+          if [ -z "$ROOT" ]; then
+            echo "::error::Ryujinx.HLE/Ryujinx.HLE.csproj not found in source archive"
+            find source -maxdepth 5 -type f | head -200
+            exit 1
+          fi
+          ROOT="${ROOT%/Ryujinx.HLE/Ryujinx.HLE.csproj}"
+          echo "RYUJINX_SOURCE_ROOT=$ROOT" >> "$GITHUB_ENV"
+          echo "Original source root: $ROOT"
+
+      - name: Inventory original projects and Android blockers
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p audit
+          {
+            echo "# Ryujinx original source audit"
+            echo
+            echo "- Archive: `ryujinx-mirror-mirror-master.zip`"
+            echo "- Source root: `$RYUJINX_SOURCE_ROOT`"
+            echo
+            echo "## Project files"
+            find "$RYUJINX_SOURCE_ROOT" -name '*.csproj' -type f | sort
+            echo
+            echo "## Target frameworks"
+            grep -RhsE '<TargetFrameworks?>' "$RYUJINX_SOURCE_ROOT" --include='*.csproj' | sort -u || true
+            echo
+            echo "## Android / native / graphics references"
+            grep -RInsE 'OpenTK.Windowing|GLFW|Silk.NET.Vulkan|VulkanRenderer|DllImport|LibraryImport|RuntimeIdentifier|RuntimeIdentifiers' "$RYUJINX_SOURCE_ROOT" --include='*.cs' --include='*.csproj' | head -500 || true
+            echo
+            echo "## Required core projects"
+            for project in Ryujinx.HLE/Ryujinx.HLE.csproj Ryujinx.Graphics.GAL/Ryujinx.Graphics.GAL.csproj Ryujinx.Graphics.Vulkan/Ryujinx.Graphics.Vulkan.csproj Ryujinx.Audio/Ryujinx.Audio.csproj Ryujinx.Cpu/Ryujinx.Cpu.csproj ARMeilleure/ARMeilleure.csproj; do
+              if [ -f "$RYUJINX_SOURCE_ROOT/$project" ]; then
+                echo "FOUND $project"
+              else
+                echo "MISSING $project"
+              fi
+            done
+          } > audit/source-audit.md
+          cat audit/source-audit.md
+
+      - name: Upload source audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: ryujinx-original-source-audit
+          path: audit/source-audit.md
+          if-no-files-found: error
+          retention-days: 14
