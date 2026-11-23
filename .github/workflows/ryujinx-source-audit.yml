@@ -9,6 +9,7 @@ on:
       - "Directory.Packages.props"
       - "global.json"
       - "nuget.config"
+      - "patches/**"
       - ".github/workflows/ryujinx-source-audit.yml"
 
 permissions:
