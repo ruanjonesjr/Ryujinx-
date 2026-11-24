@@ -60,7 +60,10 @@ jobs:
           set -euo pipefail
           mkdir -p "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan"
           cp ryu/src/Ryujinx.Graphics.Vulkan/AndroidVulkanSurface.cs "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/AndroidVulkanSurface.cs"
+          cp ryu/src/Ryujinx.Graphics.Vulkan/AndroidVulkanRendererSession.cs "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/AndroidVulkanRendererSession.cs"
           grep -q "VK_KHR_android_surface" "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/AndroidVulkanSurface.cs"
+          grep -q "renderer.Initialize(logLevel)" "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/AndroidVulkanRendererSession.cs"
+          grep -q "_renderer.Window.SetSize(width, height)" "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/AndroidVulkanRendererSession.cs"
           echo "Injected Android ANativeWindow Vulkan surface implementation."
 
       - name: Patch original VulkanRenderer for Android ANativeWindow
