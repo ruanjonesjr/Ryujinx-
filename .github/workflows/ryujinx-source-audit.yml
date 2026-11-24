@@ -76,6 +76,18 @@ jobs:
           grep -q "IntPtr androidNativeWindow" "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/VulkanRenderer.cs"
           echo "Original VulkanRenderer now has an Android ANativeWindow constructor."
 
+      - name: Patch original ARM64 memory and JIT for Android
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_REPO_ROOT="$(dirname "$RYUJINX_SOURCE_ROOT")"
+          cd "$SOURCE_REPO_ROOT"
+          patch --batch --forward -p1 < "$GITHUB_WORKSPACE/patches/0003-enable-android-arm64-core-memory-and-jit.patch"
+          grep -q 'OperatingSystem.IsAndroid()' "$RYUJINX_SOURCE_ROOT/Ryujinx.Memory/MemoryManagement.cs"
+          grep -q 'ASharedMemory_create' "$RYUJINX_SOURCE_ROOT/Ryujinx.Memory/MemoryManagementUnix.cs"
+          grep -q 'OperatingSystem.IsAndroid()' "$RYUJINX_SOURCE_ROOT/ARMeilleure/Signal/NativeSignalHandlerGenerator.cs"
+          echo "Android ARM64 memory mapping, shared memory, signal handling and CPU feature detection patches applied."
+
       - name: Build original HLE and Vulkan projects (Android surface integration)
         shell: bash
         run: |
