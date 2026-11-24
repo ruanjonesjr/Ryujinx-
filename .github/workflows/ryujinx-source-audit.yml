@@ -168,6 +168,32 @@ jobs:
           } > audit/source-audit.md
           cat audit/source-audit.md
 
+      - name: Inventory HLE launch API and frontend dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "# Android host integration API inventory"
+            echo
+            echo "## HLE device and launch APIs"
+            grep -RInsE 'class Switch|public Switch\\(|LoadXci|LoadNsp|LoadRom|LoadApplication|class HLEConfiguration|record HLEConfiguration' "$RYUJINX_SOURCE_ROOT" --include='*.cs' | head -400 || true
+            echo
+            echo "## Existing frontend device initialization"
+            grep -RInsE 'new Switch\\(|new HLEConfiguration|LoadXci|LoadNsp|LoadApplication' "$RYUJINX_SOURCE_ROOT" --include='*.cs' | head -400 || true
+            echo
+            echo "## Renderer surface and window coupling"
+            grep -RInsE 'IWindow|IHostUI|WindowSize|Surface|VulkanRenderer\\(' "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan" "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.GAL" --include='*.cs' | head -300 || true
+            echo
+            echo "## Audio and input abstractions"
+            grep -RInsE 'interface I.*Audio|interface I.*Input|IAudioOut|IHostAudio|IInput' "$RYUJINX_SOURCE_ROOT/Ryujinx.Audio" "$RYUJINX_SOURCE_ROOT/Ryujinx.Input" --include='*.cs' | head -300 || true
+            echo
+            echo "## Core project references"
+            sed -n '1,240p' "$RYUJINX_SOURCE_ROOT/Ryujinx.HLE/Ryujinx.HLE.csproj"
+            echo
+            sed -n '1,200p' "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/Ryujinx.Graphics.Vulkan.csproj"
+          } > audit/android-host-api.md
+          cat audit/android-host-api.md
+
       - name: Package original source for implementation review
         shell: bash
         run: |
@@ -180,6 +206,7 @@ jobs:
           name: ryujinx-original-source-audit
           path: |
             audit/source-audit.md
+            audit/android-host-api.md
             audit/ryujinx-source-review.tar.gz
             audit/android-arm64/libryujinx_android.so
             audit/android-java/**
