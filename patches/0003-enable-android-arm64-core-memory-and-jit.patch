@@ -1,5 +1,5 @@
---- a/Ryujinx.Memory/MemoryManagement.cs
-+++ b/Ryujinx.Memory/MemoryManagement.cs
+--- a/src/Ryujinx.Memory/MemoryManagement.cs
++++ b/src/Ryujinx.Memory/MemoryManagement.cs
 @@ -13 +13 @@
 -            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
 +            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsAndroid())
@@ -36,8 +36,8 @@
 @@ -196 +196 @@
 -            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
 +            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsAndroid())
---- a/Ryujinx.Memory/MemoryManagerUnixHelper.cs
-+++ b/Ryujinx.Memory/MemoryManagerUnixHelper.cs
+--- a/src/Ryujinx.Memory/MemoryManagerUnixHelper.cs
++++ b/src/Ryujinx.Memory/MemoryManagerUnixHelper.cs
 @@ -8,0 +9 @@
 +    [SupportedOSPlatform("android")]
 @@ -113 +114 @@
@@ -49,8 +49,8 @@
 @@ -145 +146 @@
 -                if (OperatingSystem.IsLinux())
 +                if (OperatingSystem.IsLinux() || OperatingSystem.IsAndroid())
---- a/Ryujinx.Memory/MemoryManagementUnix.cs
-+++ b/Ryujinx.Memory/MemoryManagementUnix.cs
+--- a/src/Ryujinx.Memory/MemoryManagementUnix.cs
++++ b/src/Ryujinx.Memory/MemoryManagementUnix.cs
 @@ -11 +11,2 @@
 -    static class MemoryManagementUnix
 +    [SupportedOSPlatform("android")]
@@ -72,18 +72,18 @@
 +                }
 +            }
 +            else if (OperatingSystem.IsMacOS())
---- a/Ryujinx.Memory/MemoryBlock.cs
-+++ b/Ryujinx.Memory/MemoryBlock.cs
+--- a/src/Ryujinx.Memory/MemoryBlock.cs
++++ b/src/Ryujinx.Memory/MemoryBlock.cs
 @@ -429 +429 @@
 -                return OperatingSystem.IsLinux() || OperatingSystem.IsMacOS();
 +                return OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsAndroid();
---- a/Ryujinx.Cpu/Signal/NativeSignalHandler.cs
-+++ b/Ryujinx.Cpu/Signal/NativeSignalHandler.cs
+--- a/src/Ryujinx.Cpu/Signal/NativeSignalHandler.cs
++++ b/src/Ryujinx.Cpu/Signal/NativeSignalHandler.cs
 @@ -91 +91 @@
 -                if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
 +                if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsAndroid())
---- a/ARMeilleure/Signal/NativeSignalHandlerGenerator.cs
-+++ b/ARMeilleure/Signal/NativeSignalHandlerGenerator.cs
+--- a/src/ARMeilleure/Signal/NativeSignalHandlerGenerator.cs
++++ b/src/ARMeilleure/Signal/NativeSignalHandlerGenerator.cs
 @@ -114 +114 @@
 -            else if (OperatingSystem.IsLinux())
 +            else if (OperatingSystem.IsLinux() || OperatingSystem.IsAndroid())
@@ -93,8 +93,8 @@
 @@ -338 +338 @@
 -            return OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsIOS();
 +            return OperatingSystem.IsLinux() || OperatingSystem.IsAndroid() || OperatingSystem.IsMacOS() || OperatingSystem.IsIOS();
---- a/ARMeilleure/CodeGen/Arm64/HardwareCapabilities.cs
-+++ b/ARMeilleure/CodeGen/Arm64/HardwareCapabilities.cs
+--- a/src/ARMeilleure/CodeGen/Arm64/HardwareCapabilities.cs
++++ b/src/ARMeilleure/CodeGen/Arm64/HardwareCapabilities.cs
 @@ -17 +17 @@
 -            if (OperatingSystem.IsLinux())
 +            if (OperatingSystem.IsLinux() || OperatingSystem.IsAndroid())
