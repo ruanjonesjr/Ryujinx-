@@ -1,0 +1,184 @@
+--- a/Ryujinx.Memory/MemoryManagement.cs
++++ b/Ryujinx.Memory/MemoryManagement.cs
+@@ -10,7 +10,7 @@
+             {
+                 return MemoryManagementWindows.Allocate((IntPtr)size);
+             }
+-            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
++            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsAndroid())
+             {
+                 return MemoryManagementUnix.Allocate(size, forJit);
+             }
+@@ -26,7 +26,7 @@
+             {
+                 return MemoryManagementWindows.Reserve((IntPtr)size, viewCompatible);
+             }
+-            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
++            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsAndroid())
+             {
+                 return MemoryManagementUnix.Reserve(size, forJit);
+             }
+@@ -42,7 +42,7 @@
+             {
+                 MemoryManagementWindows.Commit(address, (IntPtr)size);
+             }
+-            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
++            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsAndroid())
+             {
+                 MemoryManagementUnix.Commit(address, size, forJit);
+             }
+@@ -58,7 +58,7 @@
+             {
+                 MemoryManagementWindows.Decommit(address, (IntPtr)size);
+             }
+-            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
++            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsAndroid())
+             {
+                 MemoryManagementUnix.Decommit(address, size);
+             }
+@@ -74,7 +74,7 @@
+             {
+                 MemoryManagementWindows.MapView(sharedMemory, srcOffset, address, (IntPtr)size, owner);
+             }
+-            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
++            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsAndroid())
+             {
+                 MemoryManagementUnix.MapView(sharedMemory, srcOffset, address, size);
+             }
+@@ -90,7 +90,7 @@
+             {
+                 MemoryManagementWindows.UnmapView(sharedMemory, address, (IntPtr)size, owner);
+             }
+-            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
++            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsAndroid())
+             {
+                 MemoryManagementUnix.UnmapView(address, size);
+             }
+@@ -108,7 +108,7 @@
+             {
+                 result = MemoryManagementWindows.Reprotect(address, (IntPtr)size, permission, forView);
+             }
+-            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
++            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsAndroid())
+             {
+                 result = MemoryManagementUnix.Reprotect(address, size, permission);
+             }
+@@ -129,7 +129,7 @@
+             {
+                 return MemoryManagementWindows.Free(address, (IntPtr)size);
+             }
+-            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
++            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsAndroid())
+             {
+                 return MemoryManagementUnix.Free(address);
+             }
+@@ -145,7 +145,7 @@
+             {
+                 return MemoryManagementWindows.CreateSharedMemory((IntPtr)size, reserve);
+             }
+-            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
++            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsAndroid())
+             {
+                 return MemoryManagementUnix.CreateSharedMemory(size, reserve);
+             }
+@@ -161,7 +161,7 @@
+             {
+                 MemoryManagementWindows.DestroySharedMemory(handle);
+             }
+-            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
++            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsAndroid())
+             {
+                 MemoryManagementUnix.DestroySharedMemory(handle);
+             }
+@@ -177,7 +177,7 @@
+             {
+                 return MemoryManagementWindows.MapSharedMemory(handle);
+             }
+-            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
++            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsAndroid())
+             {
+                 return MemoryManagementUnix.MapSharedMemory(handle, size);
+             }
+@@ -193,7 +193,7 @@
+             {
+                 MemoryManagementWindows.UnmapSharedMemory(address);
+             }
+-            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
++            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsAndroid())
+             {
+                 MemoryManagementUnix.UnmapSharedMemory(address, size);
+             }
+--- a/Ryujinx.Memory/MemoryManagerUnixHelper.cs
++++ b/Ryujinx.Memory/MemoryManagerUnixHelper.cs
+@@ -6,6 +6,7 @@
+ {
+     [SupportedOSPlatform("linux")]
+     [SupportedOSPlatform("macos")]
++    [SupportedOSPlatform("android")]
+     public static partial class MemoryManagerUnixHelper
+@@ -110,7 +111,7 @@
+-                if (OperatingSystem.IsLinux())
++                if (OperatingSystem.IsLinux() || OperatingSystem.IsAndroid())
+@@ -126,7 +127,7 @@
+-                if (OperatingSystem.IsLinux())
++                if (OperatingSystem.IsLinux() || OperatingSystem.IsAndroid())
+@@ -142,7 +143,7 @@
+-                if (OperatingSystem.IsLinux())
++                if (OperatingSystem.IsLinux() || OperatingSystem.IsAndroid())
+--- a/Ryujinx.Memory/MemoryManagementUnix.cs
++++ b/Ryujinx.Memory/MemoryManagementUnix.cs
+@@ -8,10 +8,16 @@
+ {
+     [SupportedOSPlatform("linux")]
+     [SupportedOSPlatform("macos")]
+-    static class MemoryManagementUnix
++    [SupportedOSPlatform("android")]
++    static partial class MemoryManagementUnix
+     {
+         private static readonly ConcurrentDictionary<IntPtr, ulong> _allocations = new();
+ 
++        // Android has no guaranteed /dev/shm mount. ASharedMemory is available
++        // from API 26 and returns an fd that can be mapped with the same mmap path.
++        [LibraryImport("android", EntryPoint = "ASharedMemory_create", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
++        private static partial int ASharedMemoryCreate(string name, ulong size);
++
+@@ -138,7 +144,15 @@
+         {
+             int fd;
+ 
+-            if (OperatingSystem.IsMacOS())
++            if (OperatingSystem.IsAndroid())
++            {
++                fd = ASharedMemoryCreate("Ryujinx shared memory", size);
++                if (fd < 0)
++                {
++                    throw new SystemException($"ASharedMemory_create failed: {Marshal.GetLastPInvokeErrorMessage()}");
++                }
++            }
++            else if (OperatingSystem.IsMacOS())
+--- a/Ryujinx.Memory/MemoryBlock.cs
++++ b/Ryujinx.Memory/MemoryBlock.cs
+@@ -426,7 +426,7 @@
+-                return OperatingSystem.IsLinux() || OperatingSystem.IsMacOS();
++                return OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsAndroid();
+--- a/Ryujinx.Cpu/Signal/NativeSignalHandler.cs
++++ b/Ryujinx.Cpu/Signal/NativeSignalHandler.cs
+@@ -88,7 +88,7 @@
+-                if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
++                if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsAndroid())
+--- a/ARMeilleure/Signal/NativeSignalHandlerGenerator.cs
++++ b/ARMeilleure/Signal/NativeSignalHandlerGenerator.cs
+@@ -111,7 +111,7 @@
+-            else if (OperatingSystem.IsLinux())
++            else if (OperatingSystem.IsLinux() || OperatingSystem.IsAndroid())
+@@ -271,7 +271,7 @@
+-                    if (OperatingSystem.IsLinux())
++                    if (OperatingSystem.IsLinux() || OperatingSystem.IsAndroid())
+@@ -335,7 +335,7 @@
+-            return OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsIOS();
++            return OperatingSystem.IsLinux() || OperatingSystem.IsAndroid() || OperatingSystem.IsMacOS() || OperatingSystem.IsIOS();
+--- a/ARMeilleure/CodeGen/Arm64/HardwareCapabilities.cs
++++ b/ARMeilleure/CodeGen/Arm64/HardwareCapabilities.cs
+@@ -14,7 +14,7 @@
+-            if (OperatingSystem.IsLinux())
++            if (OperatingSystem.IsLinux() || OperatingSystem.IsAndroid())
