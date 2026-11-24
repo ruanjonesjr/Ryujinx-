@@ -6,10 +6,11 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
 /**
- * Owns the ANativeWindow reference for one Android Surface lifecycle.
+ * Owns one retained ANativeWindow reference for the lifetime of an Android Surface.
  *
- * The listener must stop using the handle before onNativeWindowDestroyed returns.
- * The handle is valid only between the created and destroyed callbacks.
+ * Listener callbacks run on the Android UI thread. The listener must stop and
+ * dispose every renderer using the handle before onNativeWindowDestroyed returns.
+ * A handle is valid only between the created and destroyed callbacks.
  */
 public final class RyujinxSurfaceView extends SurfaceView
         implements SurfaceHolder.Callback {
@@ -32,7 +33,8 @@ public final class RyujinxSurfaceView extends SurfaceView
         initialize();
     }
 
-    public RyujinxSurfaceView(Context context, AttributeSet attrs, int defStyleAttr) {
+    public RyujinxSurfaceView(
+            Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         initialize();
     }
@@ -43,8 +45,21 @@ public final class RyujinxSurfaceView extends SurfaceView
         setFocusableInTouchMode(true);
     }
 
-    public void setListener(Listener listener) {
-        this.listener = listener;
+    /**
+     * Replacing a listener first gives the previous listener a synchronous
+     * chance to dispose its renderer before the new listener receives the handle.
+     */
+    public void setListener(Listener newListener) {
+        if (listener == newListener) {
+            return;
+        }
+
+        if (nativeWindow != 0 && listener != null) {
+            listener.onNativeWindowDestroyed(nativeWindow);
+        }
+
+        listener = newListener;
+
         if (nativeWindow != 0 && listener != null) {
             listener.onNativeWindowCreated(
                     nativeWindow, getWidth(), getHeight());
@@ -55,6 +70,7 @@ public final class RyujinxSurfaceView extends SurfaceView
     public void surfaceCreated(SurfaceHolder holder) {
         releaseWindow();
         nativeWindow = NativeWindowBridge.fromSurface(holder.getSurface());
+
         if (nativeWindow != 0 && listener != null) {
             listener.onNativeWindowCreated(
                     nativeWindow, getWidth(), getHeight());
@@ -77,10 +93,16 @@ public final class RyujinxSurfaceView extends SurfaceView
     private void releaseWindow() {
         long oldWindow = nativeWindow;
         nativeWindow = 0;
-        if (oldWindow != 0) {
+
+        if (oldWindow == 0) {
+            return;
+        }
+
+        try {
             if (listener != null) {
                 listener.onNativeWindowDestroyed(oldWindow);
             }
+        } finally {
             NativeWindowBridge.release(oldWindow);
         }
     }
