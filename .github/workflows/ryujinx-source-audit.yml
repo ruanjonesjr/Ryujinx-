@@ -101,10 +101,7 @@ jobs:
           ANDROID_JAR="$ANDROID_HOME/platforms/android-35/android.jar"
           test -s "$ANDROID_JAR"
           mkdir -p audit/android-java
-          javac -source 8 -target 8 -classpath "$ANDROID_JAR" \\
-            -d audit/android-java \\
-            ryu/android/java/com/ryujinx/android/NativeWindowBridge.java \\
-            ryu/android/java/com/ryujinx/android/RyujinxSurfaceView.java
+          javac -source 8 -target 8 -classpath "$ANDROID_JAR" -d audit/android-java ryu/android/java/com/ryujinx/android/NativeWindowBridge.java ryu/android/java/com/ryujinx/android/RyujinxSurfaceView.java
           NDK="$ANDROID_HOME/ndk/27.2.12479018"
           cmake -S ryu/android/native -B build/android-native -G Ninja \
             -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
