@@ -85,6 +85,31 @@ jobs:
           dotnet restore "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/Ryujinx.Graphics.Vulkan.csproj"
           dotnet build "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/Ryujinx.Graphics.Vulkan.csproj" --no-restore --configuration Release
 
+      - name: Build Android ANativeWindow JNI bridge for ARM64
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build
+          SDKMANAGER="$(find "$ANDROID_HOME" -type f -name sdkmanager -print -quit)"
+          if [ -z "$SDKMANAGER" ]; then
+            echo "::error::Android sdkmanager not found"
+            exit 1
+          fi
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "ndk;27.2.12479018"
+          NDK="$ANDROID_HOME/ndk/27.2.12479018"
+          cmake -S ryu/android/native -B build/android-native -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-26 \
+            -DANDROID_STL=c++_shared
+          cmake --build build/android-native --config Release
+          test -s build/android-native/libryujinx_android.so
+          mkdir -p audit/android-arm64
+          cp build/android-native/libryujinx_android.so audit/android-arm64/
+          file audit/android-arm64/libryujinx_android.so
+
       - name: Inventory original projects and Android blockers
         shell: bash
         run: |
