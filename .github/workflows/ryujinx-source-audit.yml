@@ -154,5 +154,6 @@ jobs:
           path: |
             audit/source-audit.md
             audit/ryujinx-source-review.tar.gz
+            audit/android-arm64/libryujinx_android.so
           if-no-files-found: error
           retention-days: 14
