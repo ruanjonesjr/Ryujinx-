@@ -82,7 +82,7 @@ namespace Ryujinx.Android
             if (minBytes <= 0) minBytes = (int)(sampleRate * channels * 2 / 5);
             int bufferBytes = Math.Max(minBytes, (int)(sampleRate * channels * 2 / 5));
             _track = new AudioTrack(Stream.Music, (int)sampleRate, channelMask, Encoding.Pcm16bit, bufferBytes, AudioTrackMode.Stream);
-            if (_track.State != State.Initialized)
+            if (_track.State != AudioTrackState.Initialized)
             {
                 _track.Release();
                 throw new InvalidOperationException("Android AudioTrack não inicializou.");
