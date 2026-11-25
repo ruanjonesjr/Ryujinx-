@@ -109,7 +109,7 @@ namespace Ryujinx.Android
                 Gravity = GravityFlags.Center,
                 TextSize = 12
             };
-            stick.SetBackgroundColor(unchecked((int)0xFF30343B));
+            stick.SetBackgroundColor(global::Android.Graphics.Color.Rgb(48, 52, 59));
             stick.SetTextColor(global::Android.Graphics.Color.White);
             stick.Touch += (_, e) =>
             {
