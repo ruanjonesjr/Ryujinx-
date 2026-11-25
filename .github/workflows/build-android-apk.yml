@@ -65,6 +65,23 @@ jobs:
           grep -q "renderer.Initialize(logLevel)" "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/AndroidVulkanRendererSession.cs"
           grep -q "_renderer.Window.SetSize(width, height)" "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/AndroidVulkanRendererSession.cs"
           echo "Injected Android ANativeWindow Vulkan surface implementation."
+          # Mali-G57 Android drivers commonly expose Vulkan 1.1. The desktop
+          # Ryujinx source rejects Vulkan 1.1 instances by hard-requiring 1.2.
+          VULKAN_INIT="$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/VulkanInitialization.cs"
+          python3 - "$VULKAN_INIT" <<'PY'
+          from pathlib import Path
+          import sys
+          p = Path(sys.argv[1])
+          s = p.read_text()
+          s = s.replace('private static readonly uint _minimalInstanceVulkanVersion = Vk.Version12.Value;', 'private static readonly uint _minimalInstanceVulkanVersion = Vk.Version11.Value;')
+          s = s.replace('private static readonly uint _maximumVulkanVersion = Vk.Version12.Value;', 'private static readonly uint _maximumVulkanVersion = Vk.Version11.Value;')
+          if 'private static readonly uint _minimalInstanceVulkanVersion = Vk.Version11.Value;' not in s:
+              raise SystemExit('Could not apply Vulkan 1.1 minimum instance version')
+          if 'private static readonly uint _maximumVulkanVersion = Vk.Version11.Value;' not in s:
+              raise SystemExit('Could not apply Vulkan 1.1 API version')
+          p.write_text(s)
+          PY
+          grep -nE '_minimalInstanceVulkanVersion|_maximumVulkanVersion' "$VULKAN_INIT"
 
       - name: Patch original VulkanRenderer for Android ANativeWindow
         shell: bash
