@@ -51,6 +51,7 @@ namespace Ryujinx.Android
         private int _surfaceWidth;
         private int _surfaceHeight;
         private long _pendingNativeWindow;
+        private int _hostInitializationInProgress;
 
         protected override void OnCreate(Bundle savedInstanceState)
         {
@@ -547,22 +548,36 @@ namespace Ryujinx.Android
                 return;
             }
 
-            long nativeWindow;
+            // Prevent rapid repeated taps from constructing two Vulkan instances
+            // against the same Android Surface.
+            if (Interlocked.CompareExchange(ref _hostInitializationInProgress, 1, 0) != 0)
+            {
+                _status.Text = "O motor já está sendo inicializado. Aguarde...";
+                return;
+            }
+
+            long nativeWindow = 0;
             try
             {
                 nativeWindow = NativeFromSurface(JNIEnv.Handle, IntPtr.Zero, holder.Surface.Handle);
                 if (nativeWindow == 0)
                     throw new InvalidOperationException("ANativeWindow não foi criado a partir da Surface Android.");
+
+                int generation = Volatile.Read(ref _surfaceGeneration);
+                Interlocked.Exchange(ref _pendingNativeWindow, nativeWindow);
+                _status.Text = "Inicializando Vulkan sob solicitação...";
+                _ = InitializeHostAsync(nativeWindow, generation);
             }
             catch (Exception ex)
             {
+                if (nativeWindow != 0)
+                {
+                    Interlocked.CompareExchange(ref _pendingNativeWindow, 0, nativeWindow);
+                    try { NativeReleaseWindow(nativeWindow); } catch { }
+                }
+                Interlocked.Exchange(ref _hostInitializationInProgress, 0);
                 ReportVulkanError(ex);
-                return;
             }
-
-            int generation = Volatile.Read(ref _surfaceGeneration);
-            _status.Text = "Inicializando Vulkan sob solicitação...";
-            _ = InitializeHostAsync(nativeWindow, generation);
         }
 
 
@@ -579,6 +594,7 @@ namespace Ryujinx.Android
                 }
 
                 _host = host;
+                Interlocked.CompareExchange(ref _pendingNativeWindow, 0, nativeWindow);
                 host.Resize(_surfaceWidth, _surfaceHeight);
                 _status.Text = "Vulkan inicializado. Importe prod.keys e selecione um jogo.";
 
@@ -594,10 +610,18 @@ namespace Ryujinx.Android
             catch (Exception ex)
             {
                 if (host != null) await Task.Run(host.Stop);
-                else NativeReleaseWindow(nativeWindow);
+                else
+                {
+                    Interlocked.CompareExchange(ref _pendingNativeWindow, 0, nativeWindow);
+                    NativeReleaseWindow(nativeWindow);
+                }
 
                 if (_surfaceReady && generation == Volatile.Read(ref _surfaceGeneration))
                     ReportVulkanError(ex);
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _hostInitializationInProgress, 0);
             }
         }
 
