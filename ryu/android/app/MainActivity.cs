@@ -84,7 +84,20 @@ namespace Ryujinx.Android
             _status.Text = "Aguardando superfície Vulkan...";
         }
 
-        private void AddPadButton(LinearLayout row, string label, ControllerKeys key)\n        {\n            var button = new Button(this) { Text = label, MinWidth = 0, MinimumWidth = 0 };\n            button.SetPadding(2, 2, 2, 2);\n            button.Touch += (_, e) =>\n            {\n                if (e.Event.Action == MotionEventActions.Down) _host?.SetButton(key, true);\n                else if (e.Event.Action == MotionEventActions.Up || e.Event.Action == MotionEventActions.Cancel) _host?.SetButton(key, false);\n                e.Handled = true;\n            };\n            row.AddView(button, new LinearLayout.LayoutParams(0, -2, 1));\n        }\n\n        private void PickFile(int request, string mime, string action)
+        private void AddPadButton(LinearLayout row, string label, ControllerKeys key)
+        {
+            var button = new Button(this) { Text = label, MinWidth = 0, MinimumWidth = 0 };
+            button.SetPadding(2, 2, 2, 2);
+            button.Touch += (_, e) =>
+            {
+                if (e.Event.Action == MotionEventActions.Down) _host?.SetButton(key, true);
+                else if (e.Event.Action == MotionEventActions.Up || e.Event.Action == MotionEventActions.Cancel) _host?.SetButton(key, false);
+                e.Handled = true;
+            };
+            row.AddView(button, new LinearLayout.LayoutParams(0, -2, 1));
+        }
+
+        private void PickFile(int request, string mime, string action)
         {
             _pendingAction = action;
             var intent = new Intent(Intent.ActionOpenDocument);
@@ -198,7 +211,8 @@ namespace Ryujinx.Android
             private readonly VulkanRenderer _renderer;
             private RyujinxSwitch _device;
             private CancellationTokenSource _renderCancellation;
-            private Task _renderTask;\n            private ControllerKeys _buttons;
+            private Task _renderTask;
+            private ControllerKeys _buttons;
 
             public AndroidHost(MainActivity activity, long nativeWindow)
             {
@@ -235,7 +249,16 @@ namespace Ryujinx.Android
                 _renderer.Initialize(GraphicsDebugLevel.None);
             }
 
-            public void ReloadKeys() => _vfs.ReloadKeySet();\n\n            public void SetButton(ControllerKeys key, bool pressed)\n            {\n                if (pressed) _buttons |= key; else _buttons &= ~key;\n                _device.Hid.Npads.Update(new System.Collections.Generic.List<GamepadInput>\n                {\n                    new GamepadInput { PlayerId = PlayerIndex.Handheld, Buttons = _buttons }\n                });\n            }
+            public void ReloadKeys() => _vfs.ReloadKeySet();
+
+            public void SetButton(ControllerKeys key, bool pressed)
+            {
+                if (pressed) _buttons |= key; else _buttons &= ~key;
+                _device.Hid.Npads.Update(new System.Collections.Generic.List<GamepadInput>
+                {
+                    new GamepadInput { PlayerId = PlayerIndex.Handheld, Buttons = _buttons }
+                });
+            }
 
             public void InstallFirmware(string path) => _content.InstallFirmware(path);
 
