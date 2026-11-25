@@ -666,7 +666,7 @@ namespace Ryujinx.Android
                         try
                         {
                             string log = Path.Combine(_activity.FilesDir.AbsolutePath, "Ryujinx", "android-crash.log");
-                            File.AppendAllText(log, DateTime.UtcNow.ToString("O") + Environment.NewLine + ex + Environment.NewLine + Environment.NewLine);
+                            File.AppendAllText(log, DateTime.UtcNow.ToString("O") + System.Environment.NewLine + ex + System.Environment.NewLine + System.Environment.NewLine);
                         }
                         catch { }
                     }
