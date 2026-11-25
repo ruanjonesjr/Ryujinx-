@@ -188,6 +188,16 @@ namespace Ryujinx.Android
                 foreach (char invalid in Path.GetInvalidFileNameChars())
                     safeName = safeName.Replace(invalid, '_');
 
+                if (action == "keys")
+                {
+                    string keyName = safeName.ToLowerInvariant();
+                    safeName = keyName.StartsWith("prod") ? "prod.keys" :
+                               keyName.StartsWith("title") ? "title.keys" :
+                               keyName.StartsWith("console") ? "console.keys" : null;
+                    if (safeName == null)
+                        throw new InvalidOperationException("Selecione um arquivo prod.keys, title.keys ou console.keys.");
+                }
+
                 string targetDir = action == "keys"
                     ? Path.Combine(FilesDir.AbsolutePath, "Ryujinx", "system")
                     : action == "game"
