@@ -182,6 +182,7 @@ namespace Ryujinx.Android
             private readonly VulkanRenderer _renderer;
             private Switch _device;
             private CancellationTokenSource _renderCancellation;
+            private Task _renderTask;
 
             public AndroidHost(MainActivity activity, long nativeWindow)
             {
@@ -241,7 +242,7 @@ namespace Ryujinx.Android
             {
                 if (_renderCancellation != null) return;
                 _renderCancellation = new CancellationTokenSource();
-                Task.Run(() => _renderer.RunLoop(() =>
+                _renderTask = Task.Run(() => _renderer.RunLoop(() =>
                 {
                     _device.Gpu.SetGpuThread();
                     _device.Gpu.InitializeShaderCache(_renderCancellation.Token);
@@ -259,8 +260,9 @@ namespace Ryujinx.Android
                 _renderCancellation?.Cancel();
                 _renderCancellation?.Dispose();
                 _renderCancellation = null;
+                try { _renderTask?.Wait(1500); } catch { }
+                _device?.DisposeGpu();
                 _device?.Dispose();
-                _renderer?.Dispose();
                 NativeReleaseWindow(JNIEnv.Handle, IntPtr.Zero, _nativeWindow);
             }
         }
