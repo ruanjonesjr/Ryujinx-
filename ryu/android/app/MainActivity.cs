@@ -65,7 +65,8 @@ namespace Ryujinx.Android
             var gameButton = new Button(this) { Text = "ABRIR JOGO" };
             var keysButton = new Button(this) { Text = "PROD.KEYS" };
             var firmwareButton = new Button(this) { Text = "FIRMWARE" };
-            foreach (var button in new[] { gameButton, keysButton, firmwareButton })
+            var settingsButton = new Button(this) { Text = "GRÁFICOS" };
+            foreach (var button in new[] { gameButton, keysButton, firmwareButton, settingsButton })
             {
                 button.SetTextSize(global::Android.Util.ComplexUnitType.Sp, 10f);
                 button.SetMinimumHeight(38);
@@ -82,9 +83,11 @@ namespace Ryujinx.Android
             gameButton.Click += (_, _) => PickFile(PickGameRequest, "*/*", "game");
             keysButton.Click += (_, _) => PickFile(PickKeysRequest, "*/*", "keys");
             firmwareButton.Click += (_, _) => PickFile(PickFirmwareRequest, "application/zip", "firmware");
+            settingsButton.Click += (_, _) => ShowPerformanceSettings();
             controls.AddView(gameButton, new LinearLayout.LayoutParams(0, 42, 1));
             controls.AddView(keysButton, new LinearLayout.LayoutParams(0, 42, 1));
             controls.AddView(firmwareButton, new LinearLayout.LayoutParams(0, 42, 1));
+            controls.AddView(settingsButton, new LinearLayout.LayoutParams(0, 42, 1));
             topPanel.AddView(controls);
             topPanel.AddView(_status, new LinearLayout.LayoutParams(-1, 24));
             _importProgress = new ProgressBar(this, null, global::Android.Resource.Attribute.ProgressBarStyleHorizontal)
@@ -145,6 +148,34 @@ namespace Ryujinx.Android
                     .Edit().Remove("last_game").Apply();
             }
             _status.Text = "Aguardando superfície Vulkan...";
+        }
+
+        private void ShowPerformanceSettings()
+        {
+            string[] labels =
+            {
+                "Desempenho - 0,5x (mais leve)",
+                "Equilibrado - 0,75x",
+                "Padrão - 1,0x",
+                "Qualidade - 1,25x"
+            };
+            float[] scales = { 0.5f, 0.75f, 1.0f, 1.25f };
+            var preferences = GetSharedPreferences("ryujinx_android", FileCreationMode.Private);
+            float current = preferences.GetFloat("resolution_scale", 0.75f);
+            int selected = Array.IndexOf(scales, current);
+            if (selected < 0) selected = 1;
+
+            new AlertDialog.Builder(this)
+                .SetTitle("Escala de resolução")
+                .SetSingleChoiceItems(labels, selected, (_, args) =>
+                {
+                    float scale = scales[args.Which];
+                    preferences.Edit().PutFloat("resolution_scale", scale).Apply();
+                    GraphicsConfig.ResScale = scale;
+                    _status.Text = $"Escala {scale:0.00}x salva. Reinicie o jogo para aplicar completamente.";
+                })
+                .SetNegativeButton("Fechar", (_, _) => { })
+                .Show();
         }
 
         public override bool OnKeyDown(global::Android.Views.Keycode keyCode, KeyEvent e)
@@ -573,6 +604,8 @@ namespace Ryujinx.Android
                     // Match the desktop/headless frontend: shader caching is enabled there.
                     // Without this, every launch recompiles shaders and can cause severe stutter.
                     GraphicsConfig.EnableShaderCache = true;
+                    GraphicsConfig.ResScale = activity.GetSharedPreferences("ryujinx_android", FileCreationMode.Private)
+                        .GetFloat("resolution_scale", 0.75f);
 
                     _vfs = VirtualFileSystem.CreateInstance();
                     _libHac = new LibHacHorizonManager();
