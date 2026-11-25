@@ -11,6 +11,9 @@
     <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
     <AndroidMinSdkVersion>26</AndroidMinSdkVersion>
     <RuntimeIdentifiers>android-arm64</RuntimeIdentifiers>
+    <!-- Compile the emulator managed assemblies to ARM64 native code for the Android release. -->
+    <RunAOTCompilation>true</RunAOTCompilation>
+    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Nullable>disable</Nullable>
   </PropertyGroup>
