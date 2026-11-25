@@ -1,9 +1,9 @@
-using Android.App;
-using Android.Content;
-using Android.OS;
-using Android.Views;
-using Android.Widget;
-using Android.Runtime;
+using global::Android.App;
+using global::Android.Content;
+using global::Android.OS;
+using global::Android.Views;
+using global::Android.Widget;
+using global::Android.Runtime;
 using Ryujinx.Common.Configuration;
 using Ryujinx.Common.Logging;
 using Ryujinx.Graphics.Vulkan;
