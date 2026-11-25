@@ -51,7 +51,6 @@ namespace Ryujinx.Android
             Window.AddFlags(WindowManagerFlags.KeepScreenOn);
 
             var root = new FrameLayout(this);
-            root.SetMotionEventSplittingEnabled(true);
 
             _surfaceView = new SurfaceView(this);
             _surfaceView.Holder.AddCallback(this);
