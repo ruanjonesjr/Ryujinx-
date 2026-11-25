@@ -51,6 +51,7 @@ namespace Ryujinx.Android
             Window.AddFlags(WindowManagerFlags.KeepScreenOn);
 
             var root = new LinearLayout(this) { Orientation = Orientation.Vertical };
+            root.SetMotionEventSplittingEnabled(true);
             var controls = new LinearLayout(this) { Orientation = Orientation.Horizontal };
             var gameButton = new Button(this) { Text = "ABRIR JOGO" };
             var keysButton = new Button(this) { Text = "IMPORTAR PROD.KEYS" };
