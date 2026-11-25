@@ -49,6 +49,7 @@ namespace Ryujinx.Android
         private int _surfaceGeneration;
         private int _surfaceWidth;
         private int _surfaceHeight;
+        private long _pendingNativeWindow;
 
         protected override void OnCreate(Bundle savedInstanceState)
         {
@@ -69,7 +70,8 @@ namespace Ryujinx.Android
             var keysButton = new Button(this) { Text = "PROD.KEYS" };
             var firmwareButton = new Button(this) { Text = "FIRMWARE" };
             var settingsButton = new Button(this) { Text = "GRÁFICOS" };
-            foreach (var button in new[] { gameButton, keysButton, firmwareButton, settingsButton })
+            var startEngineButton = new Button(this) { Text = "INICIAR MOTOR" };
+            foreach (var button in new[] { gameButton, keysButton, firmwareButton, settingsButton, startEngineButton })
             {
                 button.SetTextSize(global::Android.Util.ComplexUnitType.Sp, 10f);
                 button.SetMinimumHeight(38);
@@ -87,10 +89,12 @@ namespace Ryujinx.Android
             keysButton.Click += (_, _) => PickFile(PickKeysRequest, "*/*", "keys");
             firmwareButton.Click += (_, _) => PickFile(PickFirmwareRequest, "application/zip", "firmware");
             settingsButton.Click += (_, _) => ShowPerformanceSettings();
+            startEngineButton.Click += (_, _) => StartVulkanHost();
             controls.AddView(gameButton, new LinearLayout.LayoutParams(0, 42, 1));
             controls.AddView(keysButton, new LinearLayout.LayoutParams(0, 42, 1));
             controls.AddView(firmwareButton, new LinearLayout.LayoutParams(0, 42, 1));
             controls.AddView(settingsButton, new LinearLayout.LayoutParams(0, 42, 1));
+            controls.AddView(startEngineButton, new LinearLayout.LayoutParams(0, 42, 1));
             var brand = new TextView(this) { Text = "RYUJINX", TextSize = 26, Gravity = GravityFlags.Center };
             brand.SetTextColor(global::Android.Graphics.Color.White);
             brand.SetTypeface(null, global::Android.Graphics.TypefaceStyle.Bold);
@@ -521,14 +525,36 @@ namespace Ryujinx.Android
             try
             {
                 _surfaceReady = true;
-                int generation = Interlocked.Increment(ref _surfaceGeneration);
+                Interlocked.Increment(ref _surfaceGeneration);
                 long nativeWindow = NativeFromSurface(JNIEnv.Handle, IntPtr.Zero, holder.Surface.Handle);
                 if (nativeWindow == 0) throw new InvalidOperationException("ANativeWindow não foi criado.");
-                _status.Text = "Inicializando Vulkan...";
-                _ = InitializeHostAsync(nativeWindow, generation);
+                long previous = Interlocked.Exchange(ref _pendingNativeWindow, nativeWindow);
+                if (previous != 0) NativeReleaseWindow(previous);
+                _status.Text = "Tela pronta. Toque em INICIAR MOTOR para testar Vulkan.";
             }
             catch (Exception ex) { ReportVulkanError(ex); }
         }
+
+        private void StartVulkanHost()
+        {
+            if (_host != null)
+            {
+                _status.Text = "Motor Vulkan já está inicializado.";
+                return;
+            }
+
+            long nativeWindow = Interlocked.Exchange(ref _pendingNativeWindow, 0);
+            if (nativeWindow == 0)
+            {
+                _status.Text = "Aguardando a superfície da tela. Tente novamente em instantes.";
+                return;
+            }
+
+            int generation = Volatile.Read(ref _surfaceGeneration);
+            _status.Text = "Inicializando Vulkan sob solicitação...";
+            _ = InitializeHostAsync(nativeWindow, generation);
+        }
+
 
         private async Task InitializeHostAsync(long nativeWindow, int generation)
         {
@@ -576,6 +602,8 @@ namespace Ryujinx.Android
         {
             _surfaceReady = false;
             Interlocked.Increment(ref _surfaceGeneration);
+            long pendingWindow = Interlocked.Exchange(ref _pendingNativeWindow, 0);
+            if (pendingWindow != 0) NativeReleaseWindow(pendingWindow);
             AndroidHost host = _host;
             _host = null;
             if (host != null) _ = Task.Run(host.Stop);
