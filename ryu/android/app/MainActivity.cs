@@ -141,35 +141,77 @@ namespace Ryujinx.Android
         {
             base.OnActivityResult(requestCode, resultCode, data);
             if (resultCode != global::Android.App.Result.Ok || data?.Data == null) return;
+
+            string action = requestCode switch
+            {
+                PickKeysRequest => "keys",
+                PickFirmwareRequest => "firmware",
+                PickGameRequest => "game",
+                _ => null
+            };
+
+            if (action != null)
+                _ = ImportSelectedDocumentAsync(data.Data, action);
+        }
+
+        private async Task ImportSelectedDocumentAsync(global::Android.Net.Uri uri, string action)
+        {
             try
             {
-                string name = QueryDisplayName(data.Data) ?? (_pendingAction == "keys" ? "prod.keys" : "selected-file");
-                string targetDir = _pendingAction == "keys"
-                    ? Path.Combine(FilesDir.AbsolutePath, "Ryujinx", "system")
-                    : CacheDir.AbsolutePath;
-                Directory.CreateDirectory(targetDir);
-                string target = Path.Combine(targetDir, name);
-                using (var input = ContentResolver.OpenInputStream(data.Data))
-                using (var output = File.Create(target))
-                    input.CopyTo(output);
+                _status.Text = action == "game" ? "Importando jogo para o armazenamento..." :
+                               action == "keys" ? "Importando chaves..." :
+                               "Importando firmware...";
 
-                if (_pendingAction == "keys")
+                string displayName = QueryDisplayName(uri) ?? "selected-file";
+                string extension = Path.GetExtension(displayName);
+                string safeName = Path.GetFileName(displayName);
+                foreach (char invalid in Path.GetInvalidFileNameChars())
+                    safeName = safeName.Replace(invalid, '_');
+
+                string targetDir = action == "keys"
+                    ? Path.Combine(FilesDir.AbsolutePath, "Ryujinx", "system")
+                    : action == "game"
+                        ? Path.Combine(FilesDir.AbsolutePath, "Ryujinx", "games")
+                        : Path.Combine(FilesDir.AbsolutePath, "Ryujinx", "imports");
+
+                Directory.CreateDirectory(targetDir);
+
+                string targetName = action == "game"
+                    ? Guid.NewGuid().ToString("N") + extension
+                    : safeName;
+                string target = Path.Combine(targetDir, targetName);
+
+                await Task.Run(async () =>
+                {
+                    using var input = ContentResolver.OpenInputStream(uri);
+                    if (input == null) throw new IOException("Não foi possível abrir o arquivo selecionado.");
+                    using var output = new FileStream(target, FileMode.Create, FileAccess.Write, FileShare.None, 1024 * 1024, true);
+                    await input.CopyToAsync(output);
+                    await output.FlushAsync();
+                });
+
+                if (action == "keys")
                 {
                     _host?.ReloadKeys();
                     _status.Text = "Chaves importadas. Selecione um jogo.";
                 }
-                else if (_pendingAction == "firmware")
+                else if (action == "firmware")
                 {
-                    _host?.InstallFirmware(target);
+                    if (_host == null) throw new InvalidOperationException("A superfície do emulador ainda não está pronta. Abra novamente após iniciar a tela principal.");
+                    await Task.Run(() => _host.InstallFirmware(target));
+                    try { File.Delete(target); } catch { }
                     _status.Text = "Firmware instalado.";
                 }
-                else if (_pendingAction == "game")
+                else if (action == "game")
                 {
                     if (_host == null) _pendingGame = target;
-                    else _ = StartGame(target);
+                    else await StartGame(target);
                 }
             }
-            catch (Exception ex) { _status.Text = "Falha: " + ex.Message; }
+            catch (Exception ex)
+            {
+                _status.Text = "Falha na importação: " + ex.Message;
+            }
         }
 
         private string _pendingGame;
