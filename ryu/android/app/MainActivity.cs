@@ -50,24 +50,47 @@ namespace Ryujinx.Android
             base.OnCreate(savedInstanceState);
             Window.AddFlags(WindowManagerFlags.KeepScreenOn);
 
-            var root = new LinearLayout(this) { Orientation = Orientation.Vertical };
+            var root = new FrameLayout(this);
             root.SetMotionEventSplittingEnabled(true);
+
+            _surfaceView = new SurfaceView(this);
+            _surfaceView.Holder.AddCallback(this);
+            root.AddView(_surfaceView, new FrameLayout.LayoutParams(-1, -1));
+
+            var topPanel = new LinearLayout(this) { Orientation = Orientation.Vertical };
+            topPanel.SetBackgroundColor(global::Android.Graphics.Color.Argb(175, 20, 22, 26));
             var controls = new LinearLayout(this) { Orientation = Orientation.Horizontal };
             var gameButton = new Button(this) { Text = "ABRIR JOGO" };
-            var keysButton = new Button(this) { Text = "IMPORTAR PROD.KEYS" };
-            var firmwareButton = new Button(this) { Text = "INSTALAR FIRMWARE" };
-            _status = new TextView(this) { Text = "Inicializando Ryujinx Android...", Gravity = GravityFlags.CenterVertical };
+            var keysButton = new Button(this) { Text = "PROD.KEYS" };
+            var firmwareButton = new Button(this) { Text = "FIRMWARE" };
+            foreach (var button in new[] { gameButton, keysButton, firmwareButton })
+            {
+                button.SetTextSize(10);
+                button.SetMinimumHeight(38);
+                button.SetPadding(2, 0, 2, 0);
+            }
+
+            _status = new TextView(this)
+            {
+                Text = "Inicializando Ryujinx Android...",
+                Gravity = GravityFlags.CenterVertical,
+                TextSize = 11
+            };
+            _status.SetTextColor(global::Android.Graphics.Color.White);
             gameButton.Click += (_, _) => PickFile(PickGameRequest, "*/*", "game");
             keysButton.Click += (_, _) => PickFile(PickKeysRequest, "*/*", "keys");
             firmwareButton.Click += (_, _) => PickFile(PickFirmwareRequest, "application/zip", "firmware");
-            controls.AddView(gameButton, new LinearLayout.LayoutParams(0, -2, 1));
-            controls.AddView(keysButton, new LinearLayout.LayoutParams(0, -2, 1));
-            controls.AddView(firmwareButton, new LinearLayout.LayoutParams(0, -2, 1));
-            root.AddView(controls);
-            _surfaceView = new SurfaceView(this);
-            _surfaceView.Holder.AddCallback(this);
-            root.AddView(_surfaceView, new LinearLayout.LayoutParams(-1, 0, 1));
+            controls.AddView(gameButton, new LinearLayout.LayoutParams(0, 42, 1));
+            controls.AddView(keysButton, new LinearLayout.LayoutParams(0, 42, 1));
+            controls.AddView(firmwareButton, new LinearLayout.LayoutParams(0, 42, 1));
+            topPanel.AddView(controls);
+            topPanel.AddView(_status, new LinearLayout.LayoutParams(-1, 24));
+            root.AddView(topPanel, new FrameLayout.LayoutParams(-1, -2, GravityFlags.Top));
+
+            var bottomPanel = new LinearLayout(this) { Orientation = Orientation.Vertical };
+            bottomPanel.SetBackgroundColor(global::Android.Graphics.Color.Argb(150, 20, 22, 26));
             var pad = new LinearLayout(this) { Orientation = Orientation.Vertical };
+
             var directions = new LinearLayout(this) { Orientation = Orientation.Horizontal };
             AddPadButton(directions, "↑", ControllerKeys.DpadUp);
             AddPadButton(directions, "←", ControllerKeys.DpadLeft);
@@ -75,34 +98,33 @@ namespace Ryujinx.Android
             AddPadButton(directions, "→", ControllerKeys.DpadRight);
             AddPadButton(directions, "−", ControllerKeys.Minus);
             AddPadButton(directions, "+", ControllerKeys.Plus);
-            pad.AddView(directions, new LinearLayout.LayoutParams(-1, -2));
+            pad.AddView(directions, new LinearLayout.LayoutParams(-1, 38));
 
             var faceButtons = new LinearLayout(this) { Orientation = Orientation.Horizontal };
             AddPadButton(faceButtons, "A", ControllerKeys.A);
             AddPadButton(faceButtons, "B", ControllerKeys.B);
             AddPadButton(faceButtons, "X", ControllerKeys.X);
             AddPadButton(faceButtons, "Y", ControllerKeys.Y);
-            pad.AddView(faceButtons, new LinearLayout.LayoutParams(-1, -2));
+            pad.AddView(faceButtons, new LinearLayout.LayoutParams(-1, 38));
 
             var shoulderButtons = new LinearLayout(this) { Orientation = Orientation.Horizontal };
             AddPadButton(shoulderButtons, "L", ControllerKeys.L);
             AddPadButton(shoulderButtons, "R", ControllerKeys.R);
             AddPadButton(shoulderButtons, "ZL", ControllerKeys.Zl);
             AddPadButton(shoulderButtons, "ZR", ControllerKeys.Zr);
-            pad.AddView(shoulderButtons, new LinearLayout.LayoutParams(-1, -2));
+            AddPadButton(shoulderButtons, "L3", ControllerKeys.LStick);
+            AddPadButton(shoulderButtons, "R3", ControllerKeys.RStick);
+            AddPadButton(shoulderButtons, "SL", ControllerKeys.Sl);
+            AddPadButton(shoulderButtons, "SR", ControllerKeys.Sr);
+            pad.AddView(shoulderButtons, new LinearLayout.LayoutParams(-1, 38));
+            bottomPanel.AddView(pad);
 
-            var stickButtons = new LinearLayout(this) { Orientation = Orientation.Horizontal };
-            AddPadButton(stickButtons, "L3", ControllerKeys.LStick);
-            AddPadButton(stickButtons, "R3", ControllerKeys.RStick);
-            AddPadButton(stickButtons, "SL", ControllerKeys.Sl);
-            AddPadButton(stickButtons, "SR", ControllerKeys.Sr);
-            pad.AddView(stickButtons, new LinearLayout.LayoutParams(-1, -2));
-            root.AddView(pad);
             var sticks = new LinearLayout(this) { Orientation = Orientation.Horizontal };
             AddStickControl(sticks, "ANALÓGICO ESQUERDO", true);
             AddStickControl(sticks, "ANALÓGICO DIREITO", false);
-            root.AddView(sticks, new LinearLayout.LayoutParams(-1, 150));
-            root.AddView(_status);
+            bottomPanel.AddView(sticks, new LinearLayout.LayoutParams(-1, 100));
+            root.AddView(bottomPanel, new FrameLayout.LayoutParams(-1, -2, GravityFlags.Bottom));
+
             SetContentView(root);
             Directory.CreateDirectory(Path.Combine(FilesDir.AbsolutePath, "Ryujinx"));
             _status.Text = "Aguardando superfície Vulkan...";
