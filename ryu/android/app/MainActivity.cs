@@ -63,8 +63,8 @@ namespace Ryujinx.Android
                     try
                     {
                         string logPath = Path.Combine(FilesDir.AbsolutePath, "ryujinx-startup-crash.txt");
-                        File.AppendAllText(logPath, DateTime.UtcNow.ToString("O") + Environment.NewLine +
-                            (args.ExceptionObject?.ToString() ?? "Falha não gerenciada") + Environment.NewLine);
+                        File.AppendAllText(logPath, DateTime.UtcNow.ToString("O") + System.Environment.NewLine +
+                            (args.ExceptionObject?.ToString() ?? "Falha não gerenciada") + System.Environment.NewLine);
                     }
                     catch { }
                 };
@@ -187,7 +187,7 @@ namespace Ryujinx.Android
                 try
                 {
                     string logPath = Path.Combine(FilesDir.AbsolutePath, "ryujinx-startup-crash.txt");
-                    File.WriteAllText(logPath, DateTime.UtcNow.ToString("O") + Environment.NewLine + ex);
+                    File.WriteAllText(logPath, DateTime.UtcNow.ToString("O") + System.Environment.NewLine + ex);
                 }
                 catch { }
 
