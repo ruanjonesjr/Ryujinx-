@@ -135,6 +135,14 @@ namespace Ryujinx.Android
 
             SetContentView(root);
             Directory.CreateDirectory(Path.Combine(FilesDir.AbsolutePath, "Ryujinx"));
+            _pendingGame = GetSharedPreferences("ryujinx_android", FileCreationMode.Private)
+                .GetString("last_game", null);
+            if (!string.IsNullOrEmpty(_pendingGame) && !File.Exists(_pendingGame))
+            {
+                _pendingGame = null;
+                GetSharedPreferences("ryujinx_android", FileCreationMode.Private)
+                    .Edit().Remove("last_game").Apply();
+            }
             _status.Text = "Aguardando superfície Vulkan...";
         }
 
@@ -338,6 +346,18 @@ namespace Ryujinx.Android
                     await output.FlushAsync();
                 });
                 RunOnUiThread(() => _importProgress.Progress = 100);
+
+                if (action == "game")
+                {
+                    string ext = Path.GetExtension(target).ToLowerInvariant();
+                    if (ext != ".xci" && ext != ".nsp" && ext != ".nro")
+                    {
+                        File.Delete(target);
+                        throw new InvalidOperationException("Formato não suportado. Selecione um arquivo .XCI, .NSP ou .NRO.");
+                    }
+                    GetSharedPreferences("ryujinx_android", FileCreationMode.Private)
+                        .Edit().PutString("last_game", target).Apply();
+                }
 
                 if (action == "keys")
                 {
