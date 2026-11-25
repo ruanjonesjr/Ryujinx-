@@ -16,7 +16,7 @@ using Ryujinx.HLE.HOS.Services.Hid;
 using RyujinxSwitch = Ryujinx.HLE.Switch;
 using Ryujinx.Audio.Backends.Dummy;
 using Ryujinx.Graphics.GAL;
-using LibHac.FsSystem;
+using LibHac.Tools.FsSystem;
 using Silk.NET.Vulkan;
 using System;
 using System.IO;
@@ -86,7 +86,7 @@ namespace Ryujinx.Android
 
         private void AddPadButton(LinearLayout row, string label, ControllerKeys key)
         {
-            var button = new Button(this) { Text = label, MinWidth = 0, MinimumWidth = 0 };
+            var button = new Button(this) { Text = label };
             button.SetPadding(2, 2, 2, 2);
             button.Touch += (_, e) =>
             {
