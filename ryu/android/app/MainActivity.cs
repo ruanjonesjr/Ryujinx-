@@ -38,6 +38,8 @@ namespace Ryujinx.Android
 
         private SurfaceView _surfaceView;
         private TextView _status;
+        private ProgressBar _importProgress;
+        private volatile bool _isImporting;
         private volatile AndroidHost _host;
         private string _pendingAction;
         private volatile bool _surfaceReady;
@@ -84,6 +86,13 @@ namespace Ryujinx.Android
             controls.AddView(firmwareButton, new LinearLayout.LayoutParams(0, 42, 1));
             topPanel.AddView(controls);
             topPanel.AddView(_status, new LinearLayout.LayoutParams(-1, 24));
+            _importProgress = new ProgressBar(this, null, global::Android.Resource.Attribute.ProgressBarStyleHorizontal)
+            {
+                Max = 100,
+                Progress = 0,
+                Visibility = global::Android.Views.ViewStates.Gone
+            };
+            topPanel.AddView(_importProgress, new LinearLayout.LayoutParams(-1, 5));
             root.AddView(topPanel, new FrameLayout.LayoutParams(-1, -2, GravityFlags.Top));
 
             var bottomPanel = new LinearLayout(this) { Orientation = Orientation.Vertical };
@@ -202,9 +211,14 @@ namespace Ryujinx.Android
         {
             try
             {
-                _status.Text = action == "game" ? "Importando jogo para o armazenamento..." :
-                               action == "keys" ? "Importando chaves..." :
-                               "Importando firmware...";
+                if (_isImporting) throw new InvalidOperationException("Aguarde a importação atual terminar.");
+                _isImporting = true;
+                RunOnUiThread(() =>
+                {
+                    _importProgress.Progress = 0;
+                    _importProgress.Visibility = global::Android.Views.ViewStates.Visible;
+                    _status.Text = action == "game" ? "Importando jogo..." : action == "keys" ? "Importando chaves..." : "Importando firmware...";
+                });
 
                 string displayName = QueryDisplayName(uri) ?? "selected-file";
                 string extension = Path.GetExtension(displayName);
@@ -235,14 +249,28 @@ namespace Ryujinx.Android
                     : safeName;
                 string target = Path.Combine(targetDir, targetName);
 
+                long totalBytes = QuerySize(uri);
                 await Task.Run(async () =>
                 {
                     using var input = ContentResolver.OpenInputStream(uri);
                     if (input == null) throw new IOException("Não foi possível abrir o arquivo selecionado.");
                     using var output = new FileStream(target, FileMode.Create, FileAccess.Write, FileShare.None, 1024 * 1024, true);
-                    await input.CopyToAsync(output);
+                    byte[] buffer = new byte[1024 * 1024];
+                    long copied = 0;
+                    int read;
+                    while ((read = await input.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                    {
+                        await output.WriteAsync(buffer, 0, read);
+                        copied += read;
+                        if (totalBytes > 0)
+                        {
+                            int percent = (int)Math.Clamp(copied * 100 / totalBytes, 0, 100);
+                            RunOnUiThread(() => _importProgress.Progress = percent);
+                        }
+                    }
                     await output.FlushAsync();
                 });
+                RunOnUiThread(() => _importProgress.Progress = 100);
 
                 if (action == "keys")
                 {
@@ -282,8 +310,21 @@ namespace Ryujinx.Android
             }
             catch (Exception ex)
             {
-                _status.Text = "Falha na importação: " + ex.Message;
+                RunOnUiThread(() => _status.Text = "Falha na importação: " + ex.Message);
             }
+            finally
+            {
+                _isImporting = false;
+                RunOnUiThread(() => _importProgress.Visibility = global::Android.Views.ViewStates.Gone);
+            }
+        }
+
+        private long QuerySize(global::Android.Net.Uri uri)
+        {
+            using var cursor = ContentResolver.Query(uri, null, null, null, null);
+            if (cursor == null || !cursor.MoveToFirst()) return -1;
+            int index = cursor.GetColumnIndex(global::Android.Provider.OpenableColumns.Size);
+            return index >= 0 && !cursor.IsNull(index) ? cursor.GetLong(index) : -1;
         }
 
         private string _pendingGame;
@@ -536,17 +577,33 @@ namespace Ryujinx.Android
                 if (_renderCancellation != null) return;
                 var cancellation = new CancellationTokenSource();
                 _renderCancellation = cancellation;
-                _renderTask = Task.Run(() => ((IRenderer)_renderer).RunLoop(() =>
+                _renderTask = Task.Run(() =>
                 {
-                    _device.Gpu.SetGpuThread();
-                    _device.Gpu.InitializeShaderCache(cancellation.Token);
-                    while (!cancellation.IsCancellationRequested)
+                    try
                     {
-                        if (_device.WaitFifo()) _device.ProcessFrame();
-                        while (_device.ConsumeFrameAvailable())
-                            _device.PresentFrame(() => { });
+                        ((IRenderer)_renderer).RunLoop(() =>
+                        {
+                            _device.Gpu.SetGpuThread();
+                            _device.Gpu.InitializeShaderCache(cancellation.Token);
+                            while (!cancellation.IsCancellationRequested)
+                            {
+                                if (_device.WaitFifo()) _device.ProcessFrame();
+                                while (_device.ConsumeFrameAvailable())
+                                    _device.PresentFrame(() => { });
+                            }
+                        });
                     }
-                }));
+                    catch (Exception ex)
+                    {
+                        _activity.RunOnUiThread(() => _activity._status.Text = "Falha na renderização: " + ex.Message);
+                        try
+                        {
+                            string log = Path.Combine(_activity.FilesDir.AbsolutePath, "Ryujinx", "android-crash.log");
+                            File.AppendAllText(log, DateTime.UtcNow.ToString("O") + Environment.NewLine + ex + Environment.NewLine + Environment.NewLine);
+                        }
+                        catch { }
+                    }
+                });
             }
 
             public void Stop()
