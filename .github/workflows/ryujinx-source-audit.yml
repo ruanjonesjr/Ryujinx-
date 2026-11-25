@@ -122,7 +122,7 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
             -DANDROID_ABI=arm64-v8a \
             -DANDROID_PLATFORM=android-26 \
-            -DANDROID_STL=c++_shared
+            -DANDROID_STL=c++_static
           cmake --build build/android-native --config Release
           test -s build/android-native/libryujinx_android.so
           mkdir -p audit/android-arm64
