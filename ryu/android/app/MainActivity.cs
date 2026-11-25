@@ -746,6 +746,7 @@ namespace Ryujinx.Android
             private RyujinxSwitch _device;
             private CancellationTokenSource _renderCancellation;
             private Task _renderTask;
+            private int _stopStarted;
             private ControllerKeys _buttons;
             private JoystickPosition _leftStick;
             private JoystickPosition _rightStick;
@@ -921,15 +922,38 @@ namespace Ryujinx.Android
 
             public void Stop()
             {
+                // SurfaceDestroyed and Activity.OnDestroy can race with host shutdown.
+                // The Vulkan renderer and ANativeWindow must be released exactly once.
+                if (Interlocked.Exchange(ref _stopStarted, 1) != 0)
+                {
+                    return;
+                }
+
                 CancellationTokenSource cancellation = _renderCancellation;
-                cancellation?.Cancel();
-                try { _renderTask?.Wait(); } catch { }
-                _renderTask = null;
-                _renderCancellation = null;
-                cancellation?.Dispose();
-                _device?.DisposeGpu();
-                _device?.Dispose();
-                NativeReleaseWindow(_nativeWindow);
+                try
+                {
+                    cancellation?.Cancel();
+                    try { _renderTask?.Wait(); } catch { }
+                    _renderTask = null;
+                    _renderCancellation = null;
+                    cancellation?.Dispose();
+
+                    try
+                    {
+                        _device?.DisposeGpu();
+                    }
+                    finally
+                    {
+                        _device?.Dispose();
+                        _device = null;
+                    }
+                }
+                finally
+                {
+                    // Even if HLE/Vulkan disposal throws, do not leak the native
+                    // reference retained by this AndroidHost instance.
+                    NativeReleaseWindow(_nativeWindow);
+                }
             }
         }
     }
