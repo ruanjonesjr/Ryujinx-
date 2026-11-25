@@ -1,0 +1,258 @@
+name: Build Ryujinx Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "ryujinx-mirror-mirror-master.zip"
+      - "Directory.Packages.props"
+      - "global.json"
+      - "nuget.config"
+      - "patches/**"
+      - "ryu/**"
+      - ".github/workflows/build-android-apk.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-original-source:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify and extract source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s ryujinx-mirror-mirror-master.zip
+          unzip -tq ryujinx-mirror-mirror-master.zip
+          mkdir -p source
+          unzip -q ryujinx-mirror-mirror-master.zip -d source
+          ROOT="$(find "$PWD/source" -type f -path '*/Ryujinx.HLE/Ryujinx.HLE.csproj' -print -quit)"
+          if [ -z "$ROOT" ]; then
+            echo "::error::Ryujinx.HLE/Ryujinx.HLE.csproj not found in source archive"
+            find source -maxdepth 5 -type f | head -200
+            exit 1
+          fi
+          ROOT="${ROOT%/Ryujinx.HLE/Ryujinx.HLE.csproj}"
+          echo "RYUJINX_SOURCE_ROOT=$ROOT" >> "$GITHUB_ENV"
+          echo "Original source root: $ROOT"
+
+      - name: Restore original Ryujinx build metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_REPO_ROOT="$(dirname "$RYUJINX_SOURCE_ROOT")"
+          cp Directory.Packages.props "$SOURCE_REPO_ROOT/Directory.Packages.props"
+          cp global.json "$SOURCE_REPO_ROOT/global.json"
+          cp nuget.config "$SOURCE_REPO_ROOT/nuget.config"
+          test -s "$SOURCE_REPO_ROOT/Directory.Packages.props"
+          test -s "$SOURCE_REPO_ROOT/global.json"
+          echo "Restored central package versions and .NET SDK metadata beside original src/."
+
+      - name: Inject Android Vulkan surface implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan"
+          cp ryu/src/Ryujinx.Graphics.Vulkan/AndroidVulkanSurface.cs "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/AndroidVulkanSurface.cs"
+          cp ryu/src/Ryujinx.Graphics.Vulkan/AndroidVulkanRendererSession.cs "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/AndroidVulkanRendererSession.cs"
+          grep -q "VK_KHR_android_surface" "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/AndroidVulkanSurface.cs"
+          grep -q "renderer.Initialize(logLevel)" "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/AndroidVulkanRendererSession.cs"
+          grep -q "_renderer.Window.SetSize(width, height)" "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/AndroidVulkanRendererSession.cs"
+          echo "Injected Android ANativeWindow Vulkan surface implementation."
+
+      - name: Patch original VulkanRenderer for Android ANativeWindow
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_REPO_ROOT="$(dirname "$RYUJINX_SOURCE_ROOT")"
+          cd "$SOURCE_REPO_ROOT"
+          patch --batch --forward -p1 < "$GITHUB_WORKSPACE/patches/0002-vulkan-wire-android-window-into-original-renderer.patch"
+          grep -q "IntPtr androidNativeWindow" "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/VulkanRenderer.cs"
+          echo "Original VulkanRenderer now has an Android ANativeWindow constructor."
+
+      - name: Patch original ARM64 memory and JIT for Android
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_REPO_ROOT="$(dirname "$RYUJINX_SOURCE_ROOT")"
+          cd "$SOURCE_REPO_ROOT"
+          patch --batch --forward -p1 < "$GITHUB_WORKSPACE/patches/0003-enable-android-arm64-core-memory-and-jit.patch"
+          grep -q 'OperatingSystem.IsAndroid()' "$RYUJINX_SOURCE_ROOT/Ryujinx.Memory/MemoryManagement.cs"
+          grep -q 'ASharedMemory_create' "$RYUJINX_SOURCE_ROOT/Ryujinx.Memory/MemoryManagementUnix.cs"
+          grep -q 'OperatingSystem.IsAndroid()' "$RYUJINX_SOURCE_ROOT/ARMeilleure/Signal/NativeSignalHandlerGenerator.cs"
+          echo "Android ARM64 memory mapping, shared memory, signal handling and CPU feature detection patches applied."
+
+      - name: Build original HLE and Vulkan projects (Android surface integration)
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_REPO_ROOT="$(dirname "$RYUJINX_SOURCE_ROOT")"
+          cd "$SOURCE_REPO_ROOT"
+          dotnet --info
+          dotnet restore "$RYUJINX_SOURCE_ROOT/Ryujinx.HLE/Ryujinx.HLE.csproj"
+          dotnet build "$RYUJINX_SOURCE_ROOT/Ryujinx.HLE/Ryujinx.HLE.csproj" --no-restore --configuration Release
+          dotnet restore "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/Ryujinx.Graphics.Vulkan.csproj"
+          dotnet build "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/Ryujinx.Graphics.Vulkan.csproj" --no-restore --configuration Release
+
+      - name: Build Android ANativeWindow JNI bridge for ARM64
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v cmake
+          command -v ninja
+          test -d "$ANDROID_HOME/platforms"
+          ANDROID_PLATFORM="$(find "$ANDROID_HOME/platforms" -mindepth 1 -maxdepth 1 -type d -name 'android-*' | sort -V | tail -1)"
+          ANDROID_JAR="$ANDROID_PLATFORM/android.jar"
+          test -s "$ANDROID_JAR"
+          mkdir -p audit/android-java
+          javac -source 8 -target 8 -classpath "$ANDROID_JAR" -d audit/android-java ryu/android/java/com/ryujinx/android/NativeWindowBridge.java ryu/android/java/com/ryujinx/android/RyujinxSurfaceView.java
+          test -s audit/android-java/com/ryujinx/android/NativeWindowBridge.class
+          test -s audit/android-java/com/ryujinx/android/RyujinxSurfaceView.class
+          javap -classpath audit/android-java -p com.ryujinx.android.NativeWindowBridge
+          javap -classpath audit/android-java -p com.ryujinx.android.RyujinxSurfaceView
+          NDK="$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          test -d "$NDK"
+          cmake -S ryu/android/native -B build/android-native -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-26 \
+            -DANDROID_STL=c++_static
+          cmake --build build/android-native --config Release
+          test -s build/android-native/libryujinx_android.so
+          mkdir -p audit/android-arm64
+          cp build/android-native/libryujinx_android.so audit/android-arm64/
+          file audit/android-arm64/libryujinx_android.so
+          readelf -h audit/android-arm64/libryujinx_android.so | grep -E 'Class:|Machine:'
+          LLVM_NM="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm"
+          "$LLVM_NM" -D --defined-only audit/android-arm64/libryujinx_android.so | grep 'Java_com_ryujinx_android_NativeWindowBridge_fromSurface'
+          "$LLVM_NM" -D --defined-only audit/android-arm64/libryujinx_android.so | grep 'Java_com_ryujinx_android_NativeWindowBridge_release'
+
+      - name: Build native Android ARM64 APK with original Ryujinx core
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -version
+          mkdir -p "$RYUJINX_SOURCE_ROOT/Ryujinx.Android/native/arm64-v8a"
+          cp -R ryu/android/app/. "$RYUJINX_SOURCE_ROOT/Ryujinx.Android/"
+          cp build/android-native/libryujinx_android.so "$RYUJINX_SOURCE_ROOT/Ryujinx.Android/native/arm64-v8a/"
+          dotnet workload install android
+          keytool -genkeypair -v -keystore "$GITHUB_WORKSPACE/android-release.keystore" -alias ryujinx -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Ryujinx Android"
+          mkdir -p "$GITHUB_WORKSPACE/artifacts"
+          dotnet publish "$RYUJINX_SOURCE_ROOT/Ryujinx.Android/Ryujinx.Android.csproj" \
+            --configuration Release \
+            --framework net8.0-android \
+            --output "$GITHUB_WORKSPACE/artifacts" \
+            -p:AndroidPackageFormat=apk \
+            -p:AndroidKeyStore=true \
+            -p:AndroidSigningKeyStore="$GITHUB_WORKSPACE/android-release.keystore" \
+            -p:AndroidSigningKeyAlias=ryujinx \
+            -p:AndroidSigningKeyPass=android \
+            -p:AndroidSigningStorePass=android
+          APK="$(find "$GITHUB_WORKSPACE/artifacts" -maxdepth 1 -type f -name '*Signed.apk' -print -quit)"
+          if [ -z "$APK" ]; then
+            APK="$(find "$GITHUB_WORKSPACE/artifacts" -maxdepth 1 -type f -name '*.apk' -print -quit)"
+          fi
+          test -n "$APK"
+          cp "$APK" "$GITHUB_WORKSPACE/artifacts/Ryujinx-Android.apk"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          test -x "$AAPT"
+          "$AAPT" dump badging "$GITHUB_WORKSPACE/artifacts/Ryujinx-Android.apk" | head -20
+          unzip -l "$GITHUB_WORKSPACE/artifacts/Ryujinx-Android.apk" | grep 'lib/arm64-v8a/libryujinx_android.so'
+
+      - name: Package installable Android APK as ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd artifacts
+          zip -9 Ryujinx-Android.zip Ryujinx-Android.apk
+          unzip -t Ryujinx-Android.zip
+          unzip -l Ryujinx-Android.zip
+      - name: Upload ZIP containing the installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ryujinx-Android
+          path: artifacts/Ryujinx-Android.zip
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Inventory original projects and Android blockers
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p audit
+          {
+            echo "# Ryujinx original source audit"
+            echo
+            echo "- Archive: `ryujinx-mirror-mirror-master.zip`"
+            echo "- Source root: `$RYUJINX_SOURCE_ROOT`"
+            echo
+            echo "## Project files"
+            find "$RYUJINX_SOURCE_ROOT" -name '*.csproj' -type f | sort
+            echo
+            echo "## Target frameworks"
+            grep -RhsE '<TargetFrameworks?>' "$RYUJINX_SOURCE_ROOT" --include='*.csproj' | sort -u || true
+            echo
+            echo "## Android / native / graphics references"
+            grep -RInsE 'OpenTK.Windowing|GLFW|Silk.NET.Vulkan|VulkanRenderer|DllImport|LibraryImport|RuntimeIdentifier|RuntimeIdentifiers' "$RYUJINX_SOURCE_ROOT" --include='*.cs' --include='*.csproj' | head -500 || true
+            echo
+            echo "## Required core projects"
+            for project in Ryujinx.HLE/Ryujinx.HLE.csproj Ryujinx.Graphics.GAL/Ryujinx.Graphics.GAL.csproj Ryujinx.Graphics.Vulkan/Ryujinx.Graphics.Vulkan.csproj Ryujinx.Audio/Ryujinx.Audio.csproj Ryujinx.Cpu/Ryujinx.Cpu.csproj ARMeilleure/ARMeilleure.csproj; do
+              if [ -f "$RYUJINX_SOURCE_ROOT/$project" ]; then
+                echo "FOUND $project"
+              else
+                echo "MISSING $project"
+              fi
+            done
+          } > audit/source-audit.md
+          cat audit/source-audit.md
+
+      - name: Inventory HLE launch API and frontend dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "# Android host integration API inventory"
+            echo
+            echo "## HLE device and launch APIs"
+            grep -RInsE 'class Switch|public Switch|LoadXci|LoadNsp|LoadRom|LoadApplication|class HLEConfiguration|record HLEConfiguration' "$RYUJINX_SOURCE_ROOT" --include='*.cs' | head -400 || true
+            echo
+            echo "## Existing frontend device initialization"
+            grep -RInsE 'new Switch|new HLEConfiguration|LoadXci|LoadNsp|LoadApplication' "$RYUJINX_SOURCE_ROOT" --include='*.cs' | head -400 || true
+            echo
+            echo "## Renderer surface and window coupling"
+            grep -RInsE 'IWindow|IHostUI|WindowSize|Surface|VulkanRenderer' "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan" "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.GAL" --include='*.cs' | head -300 || true
+            echo
+            echo "## Audio and input abstractions"
+            grep -RInsE 'interface I.*Audio|interface I.*Input|IAudioOut|IHostAudio|IInput' "$RYUJINX_SOURCE_ROOT/Ryujinx.Audio" "$RYUJINX_SOURCE_ROOT/Ryujinx.Input" --include='*.cs' | head -300 || true
+            echo
+            echo "## Core project references"
+            sed -n '1,240p' "$RYUJINX_SOURCE_ROOT/Ryujinx.HLE/Ryujinx.HLE.csproj"
+            echo
+            sed -n '1,200p' "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan/Ryujinx.Graphics.Vulkan.csproj"
+          } > audit/android-host-api.md
+          cat audit/android-host-api.md
+
+      - name: Package original source for implementation review
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -czf "$PWD/audit/ryujinx-source-review.tar.gz" -C "$RYUJINX_SOURCE_ROOT" .
+
+      - name: Upload source audit and review snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: ryujinx-original-source-audit
+          path: |
+            audit/source-audit.md
+            audit/android-host-api.md
+            audit/ryujinx-source-review.tar.gz
+            audit/android-arm64/libryujinx_android.so
+            audit/android-java/**
+          if-no-files-found: error
+          retention-days: 14
