@@ -132,14 +132,16 @@ namespace Ryujinx.Android
         private void AddPadButton(LinearLayout row, string label, ControllerKeys key)
         {
             var button = new Button(this) { Text = label };
-            button.SetPadding(2, 2, 2, 2);
+            button.SetTextSize(global::Android.Util.ComplexUnitType.Sp, 10f);
+            button.SetMinimumHeight(34);
+            button.SetPadding(2, 0, 2, 0);
             button.Touch += (_, e) =>
             {
                 if (e.Event.Action == MotionEventActions.Down) _host?.SetButton(key, true);
                 else if (e.Event.Action == MotionEventActions.Up || e.Event.Action == MotionEventActions.Cancel) _host?.SetButton(key, false);
                 e.Handled = true;
             };
-            row.AddView(button, new LinearLayout.LayoutParams(0, -2, 1));
+            row.AddView(button, new LinearLayout.LayoutParams(0, -1, 1));
         }
 
         private void AddStickControl(LinearLayout row, string label, bool left)
