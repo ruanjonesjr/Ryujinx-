@@ -135,6 +135,35 @@ jobs:
           "$LLVM_NM" -D --defined-only audit/android-arm64/libryujinx_android.so | grep 'Java_com_ryujinx_android_NativeWindowBridge_fromSurface'
           "$LLVM_NM" -D --defined-only audit/android-arm64/libryujinx_android.so | grep 'Java_com_ryujinx_android_NativeWindowBridge_release'
 
+      - name: Build Android ARM64 shaderc runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          NDK="$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          test -d "$NDK"
+          git clone --depth 1 https://github.com/google/shaderc.git third_party/shaderc
+          python3 third_party/shaderc/utils/git-sync-deps
+          cmake -S third_party/shaderc -B build/shaderc-android -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-26 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+            -DSHADERC_SKIP_TESTS=ON \
+            -DSHADERC_SKIP_EXAMPLES=ON \
+            -DSHADERC_SKIP_EXECUTABLES=ON \
+            -DSHADERC_SKIP_COPYRIGHT_CHECK=ON \
+            -DSHADERC_SKIP_INSTALL=ON \
+            -DSHADERC_ENABLE_HLSL=OFF \
+            -DSHADERC_ENABLE_WERROR_COMPILE=OFF
+          cmake --build build/shaderc-android --target shaderc_shared --parallel 2
+          SHADERC_LIB="$(find build/shaderc-android -type f -name 'libshaderc_shared.so' -print -quit)"
+          test -n "$SHADERC_LIB"
+          mkdir -p ryu/android/app/native/arm64-v8a
+          cp "$SHADERC_LIB" ryu/android/app/native/arm64-v8a/libshaderc_shared.so
+          file ryu/android/app/native/arm64-v8a/libshaderc_shared.so
+          readelf -h ryu/android/app/native/arm64-v8a/libshaderc_shared.so | grep -E 'Class:|Machine:'
+
       - name: Build native Android ARM64 APK with original Ryujinx core
         shell: bash
         run: |
