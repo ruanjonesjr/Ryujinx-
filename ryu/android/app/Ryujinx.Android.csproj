@@ -3,6 +3,7 @@
     <TargetFramework>net8.0-android</TargetFramework>
     <OutputType>Exe</OutputType>
     <RootNamespace>Ryujinx.Android</RootNamespace>
+    <AndroidManifest>AndroidManifest.xml</AndroidManifest>
     <ApplicationId>com.ryujinx.android</ApplicationId>
     <ApplicationTitle>Ryujinx Android</ApplicationTitle>
     <ApplicationVersion>1</ApplicationVersion>
