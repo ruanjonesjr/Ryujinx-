@@ -610,7 +610,14 @@ namespace Ryujinx.Android
             }
             catch (Exception ex)
             {
-                if (host != null) await Task.Run(host.Stop);
+                if (host != null)
+                {
+                    // If the host was already published before a resize or
+                    // post-initialization operation failed, remove the stale
+                    // reference before disposing it so the user can retry.
+                    Interlocked.CompareExchange(ref _host, null, host);
+                    await Task.Run(host.Stop);
+                }
                 else
                 {
                     Interlocked.CompareExchange(ref _pendingNativeWindow, 0, nativeWindow);
