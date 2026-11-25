@@ -1,4 +1,4 @@
-name: Ryujinx source audit
+name: Build Ryujinx Android APK
 
 on:
   workflow_dispatch:
@@ -165,11 +165,19 @@ jobs:
           "$AAPT" dump badging "$GITHUB_WORKSPACE/artifacts/Ryujinx-Android.apk" | head -20
           unzip -l "$GITHUB_WORKSPACE/artifacts/Ryujinx-Android.apk" | grep 'lib/arm64-v8a/libryujinx_android.so'
 
-      - name: Upload installable Android APK
+      - name: Package installable Android APK as ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd artifacts
+          zip -9 Ryujinx-Android.zip Ryujinx-Android.apk
+          unzip -t Ryujinx-Android.zip
+          unzip -l Ryujinx-Android.zip
+      - name: Upload ZIP containing the installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: Ryujinx-Android-APK
-          path: artifacts/Ryujinx-Android.apk
+          name: Ryujinx-Android
+          path: artifacts/Ryujinx-Android.zip
           if-no-files-found: error
           retention-days: 14
 
