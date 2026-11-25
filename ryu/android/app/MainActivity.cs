@@ -13,6 +13,7 @@ using Ryujinx.HLE.HOS;
 using Ryujinx.HLE.HOS.Services.Account.Acc;
 using Ryujinx.HLE.HOS.SystemState;
 using Ryujinx.Audio.Backends.Dummy;
+using Ryujinx.Graphics.GAL;
 using LibHac.FsSystem;
 using Silk.NET.Vulkan;
 using System;
@@ -212,7 +213,7 @@ namespace Ryujinx.Android
                     RegionCode.USA,
                     true, false, true, false,
                     IntegrityCheckLevel.None, 0, 0, "UTC",
-                    MemoryManagerMode.SoftwarePageTable,
+                    MemoryManagerMode.HostMapped,
                     true, AspectRatio.Fixed16x9, 1.0f, false, "",
                     Ryujinx.Common.Configuration.Multiplayer.MultiplayerMode.Disabled);
                 _device = new Switch(configuration);
@@ -240,7 +241,7 @@ namespace Ryujinx.Android
             {
                 if (_renderCancellation != null) return;
                 _renderCancellation = new CancellationTokenSource();
-                _renderer.RunLoop(() =>
+                Task.Run(() => _renderer.RunLoop(() =>
                 {
                     _device.Gpu.SetGpuThread();
                     _device.Gpu.InitializeShaderCache(_renderCancellation.Token);
@@ -250,7 +251,7 @@ namespace Ryujinx.Android
                         while (_device.ConsumeFrameAvailable())
                             _device.PresentFrame(() => { });
                     }
-                });
+                }));
             }
 
             public void Stop()
