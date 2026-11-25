@@ -227,10 +227,18 @@ namespace Ryujinx.Android
                 }
                 else if (action == "firmware")
                 {
-                    if (_host == null) throw new InvalidOperationException("A superfície do emulador ainda não está pronta. Abra novamente após iniciar a tela principal.");
-                    await Task.Run(() => _host.InstallFirmware(target));
-                    try { File.Delete(target); } catch { }
-                    _status.Text = "Firmware instalado.";
+                    AndroidHost host = _host;
+                    if (host == null)
+                    {
+                        _pendingFirmware = target;
+                        host = _host;
+                        if (host != null && Interlocked.CompareExchange(ref _pendingFirmware, null, target) == target)
+                            await InstallFirmwareAsync(host, target);
+                    }
+                    else
+                    {
+                        await InstallFirmwareAsync(host, target);
+                    }
                 }
                 else if (action == "game")
                 {
@@ -255,6 +263,22 @@ namespace Ryujinx.Android
         }
 
         private string _pendingGame;
+        private string _pendingFirmware;
+
+        private async Task InstallFirmwareAsync(AndroidHost host, string path)
+        {
+            try
+            {
+                _status.Text = "Instalando firmware...";
+                await Task.Run(() => host.InstallFirmware(path));
+                try { File.Delete(path); } catch { }
+                if (_host == host) _status.Text = "Firmware instalado.";
+            }
+            catch (Exception ex)
+            {
+                if (_host == host) _status.Text = "Falha ao instalar firmware: " + ex.Message;
+            }
+        }
 
         private string QueryDisplayName(global::Android.Net.Uri uri)
         {
@@ -293,6 +317,12 @@ namespace Ryujinx.Android
                 _host = host;
                 host.Resize(_surfaceWidth, _surfaceHeight);
                 _status.Text = "Vulkan inicializado. Importe prod.keys e selecione um jogo.";
+
+                string pendingFirmware = _pendingFirmware;
+                if (!string.IsNullOrEmpty(pendingFirmware) &&
+                    Interlocked.CompareExchange(ref _pendingFirmware, null, pendingFirmware) == pendingFirmware)
+                    await InstallFirmwareAsync(host, pendingFirmware);
+
                 string pending = _pendingGame;
                 _pendingGame = null;
                 if (!string.IsNullOrEmpty(pending)) await StartGame(pending);
