@@ -1,5 +1,9 @@
 name: Build Ryujinx Android APK
 
+concurrency:
+  group: ryujinx-android-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
   push:
