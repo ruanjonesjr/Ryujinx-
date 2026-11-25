@@ -64,7 +64,7 @@ namespace Ryujinx.Android
             var firmwareButton = new Button(this) { Text = "FIRMWARE" };
             foreach (var button in new[] { gameButton, keysButton, firmwareButton })
             {
-                button.SetTextSize(10);
+                button.SetTextSize(global::Android.Util.ComplexUnitType.Sp, 10f);
                 button.SetMinimumHeight(38);
                 button.SetPadding(2, 0, 2, 0);
             }
