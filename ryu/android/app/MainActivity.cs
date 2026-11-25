@@ -224,8 +224,18 @@ namespace Ryujinx.Android
                 }
                 else if (action == "game")
                 {
-                    if (_host == null) _pendingGame = target;
-                    else await StartGame(target);
+                    AndroidHost host = _host;
+                    if (host == null)
+                    {
+                        _pendingGame = target;
+                        host = _host;
+                        if (host != null && Interlocked.CompareExchange(ref _pendingGame, null, target) == target)
+                            await StartGame(target);
+                    }
+                    else
+                    {
+                        await StartGame(target);
+                    }
                 }
             }
             catch (Exception ex)
@@ -438,12 +448,13 @@ namespace Ryujinx.Android
             public void StartRenderLoop()
             {
                 if (_renderCancellation != null) return;
-                _renderCancellation = new CancellationTokenSource();
+                var cancellation = new CancellationTokenSource();
+                _renderCancellation = cancellation;
                 _renderTask = Task.Run(() => ((IRenderer)_renderer).RunLoop(() =>
                 {
                     _device.Gpu.SetGpuThread();
-                    _device.Gpu.InitializeShaderCache(_renderCancellation.Token);
-                    while (!_renderCancellation.IsCancellationRequested)
+                    _device.Gpu.InitializeShaderCache(cancellation.Token);
+                    while (!cancellation.IsCancellationRequested)
                     {
                         if (_device.WaitFifo()) _device.ProcessFrame();
                         while (_device.ConsumeFrameAvailable())
@@ -454,10 +465,12 @@ namespace Ryujinx.Android
 
             public void Stop()
             {
-                _renderCancellation?.Cancel();
-                _renderCancellation?.Dispose();
+                CancellationTokenSource cancellation = _renderCancellation;
+                cancellation?.Cancel();
+                try { _renderTask?.Wait(); } catch { }
+                _renderTask = null;
                 _renderCancellation = null;
-                try { _renderTask?.Wait(1500); } catch { }
+                cancellation?.Dispose();
                 _device?.DisposeGpu();
                 _device?.Dispose();
                 NativeReleaseWindow(_nativeWindow);
