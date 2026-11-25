@@ -13,6 +13,7 @@ using Ryujinx.HLE.FileSystem;
 using Ryujinx.HLE.HOS;
 using Ryujinx.HLE.HOS.Services.Account.Acc;
 using Ryujinx.HLE.HOS.SystemState;
+using Ryujinx.HLE.HOS.Services.Hid;
 using Ryujinx.Audio.Backends.Dummy;
 using Ryujinx.Graphics.GAL;
 using LibHac.FsSystem;
@@ -63,13 +64,27 @@ namespace Ryujinx.Android
             _surfaceView = new SurfaceView(this);
             _surfaceView.Holder.AddCallback(this);
             root.AddView(_surfaceView, new LinearLayout.LayoutParams(-1, 0, 1));
+            var pad = new LinearLayout(this) { Orientation = Orientation.Horizontal };
+            AddPadButton(pad, "↑", ControllerKeys.DpadUp);
+            AddPadButton(pad, "←", ControllerKeys.DpadLeft);
+            AddPadButton(pad, "↓", ControllerKeys.DpadDown);
+            AddPadButton(pad, "→", ControllerKeys.DpadRight);
+            AddPadButton(pad, "A", ControllerKeys.A);
+            AddPadButton(pad, "B", ControllerKeys.B);
+            AddPadButton(pad, "X", ControllerKeys.X);
+            AddPadButton(pad, "Y", ControllerKeys.Y);
+            AddPadButton(pad, "L", ControllerKeys.L);
+            AddPadButton(pad, "R", ControllerKeys.R);
+            AddPadButton(pad, "ZL", ControllerKeys.Zl);
+            AddPadButton(pad, "ZR", ControllerKeys.Zr);
+            root.AddView(pad, new LinearLayout.LayoutParams(-1, -2));
             root.AddView(_status);
             SetContentView(root);
             Directory.CreateDirectory(Path.Combine(FilesDir.AbsolutePath, "Ryujinx"));
             _status.Text = "Aguardando superfície Vulkan...";
         }
 
-        private void PickFile(int request, string mime, string action)
+        private void AddPadButton(LinearLayout row, string label, ControllerKeys key)\n        {\n            var button = new Button(this) { Text = label, MinWidth = 0, MinimumWidth = 0 };\n            button.SetPadding(2, 2, 2, 2);\n            button.Touch += (_, e) =>\n            {\n                if (e.Event.Action == MotionEventActions.Down) _host?.SetButton(key, true);\n                else if (e.Event.Action == MotionEventActions.Up || e.Event.Action == MotionEventActions.Cancel) _host?.SetButton(key, false);\n                e.Handled = true;\n            };\n            row.AddView(button, new LinearLayout.LayoutParams(0, -2, 1));\n        }\n\n        private void PickFile(int request, string mime, string action)
         {
             _pendingAction = action;
             var intent = new Intent(Intent.ActionOpenDocument);
@@ -183,7 +198,7 @@ namespace Ryujinx.Android
             private readonly VulkanRenderer _renderer;
             private Switch _device;
             private CancellationTokenSource _renderCancellation;
-            private Task _renderTask;
+            private Task _renderTask;\n            private ControllerKeys _buttons;
 
             public AndroidHost(MainActivity activity, long nativeWindow)
             {
@@ -220,7 +235,7 @@ namespace Ryujinx.Android
                 _renderer.Initialize(GraphicsDebugLevel.None);
             }
 
-            public void ReloadKeys() => _vfs.ReloadKeySet();
+            public void ReloadKeys() => _vfs.ReloadKeySet();\n\n            public void SetButton(ControllerKeys key, bool pressed)\n            {\n                if (pressed) _buttons |= key; else _buttons &= ~key;\n                _device.Hid.Npads.Update(new System.Collections.Generic.List<GamepadInput>\n                {\n                    new GamepadInput { PlayerId = PlayerIndex.Handheld, Buttons = _buttons }\n                });\n            }
 
             public void InstallFirmware(string path) => _content.InstallFirmware(path);
 
