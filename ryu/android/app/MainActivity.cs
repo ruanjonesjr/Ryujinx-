@@ -38,9 +38,12 @@ namespace Ryujinx.Android
 
         private SurfaceView _surfaceView;
         private TextView _status;
-        private AndroidHost _host;
+        private volatile AndroidHost _host;
         private string _pendingAction;
-        private bool _surfaceReady;
+        private volatile bool _surfaceReady;
+        private int _surfaceGeneration;
+        private int _surfaceWidth;
+        private int _surfaceHeight;
 
         protected override void OnCreate(Bundle savedInstanceState)
         {
@@ -245,51 +248,97 @@ namespace Ryujinx.Android
         {
             try
             {
+                _surfaceReady = true;
+                int generation = Interlocked.Increment(ref _surfaceGeneration);
                 long nativeWindow = NativeFromSurface(JNIEnv.Handle, IntPtr.Zero, holder.Surface.Handle);
                 if (nativeWindow == 0) throw new InvalidOperationException("ANativeWindow não foi criado.");
-                _host = new AndroidHost(this, nativeWindow);
-                _surfaceReady = true;
-                _status.Text = "Vulkan inicializado. Importe prod.keys e selecione um jogo.";
-                if (!string.IsNullOrEmpty(_pendingGame)) _ = StartGame(_pendingGame);
+                _status.Text = "Inicializando Vulkan...";
+                _ = InitializeHostAsync(nativeWindow, generation);
             }
             catch (Exception ex) { _status.Text = "Erro Vulkan: " + ex.Message; }
         }
 
+        private async Task InitializeHostAsync(long nativeWindow, int generation)
+        {
+            AndroidHost host = null;
+            try
+            {
+                host = await Task.Run(() => new AndroidHost(this, nativeWindow));
+                if (!_surfaceReady || generation != Volatile.Read(ref _surfaceGeneration))
+                {
+                    await Task.Run(host.Stop);
+                    return;
+                }
+
+                _host = host;
+                host.Resize(_surfaceWidth, _surfaceHeight);
+                _status.Text = "Vulkan inicializado. Importe prod.keys e selecione um jogo.";
+                string pending = _pendingGame;
+                _pendingGame = null;
+                if (!string.IsNullOrEmpty(pending)) await StartGame(pending);
+            }
+            catch (Exception ex)
+            {
+                if (host != null) await Task.Run(host.Stop);
+                else NativeReleaseWindow(nativeWindow);
+
+                if (_surfaceReady && generation == Volatile.Read(ref _surfaceGeneration))
+                    _status.Text = "Erro Vulkan: " + ex.Message;
+            }
+        }
+
         public void SurfaceChanged(ISurfaceHolder holder, global::Android.Graphics.Format format, int width, int height)
         {
+            _surfaceWidth = width;
+            _surfaceHeight = height;
             _host?.Resize(width, height);
         }
 
         public void SurfaceDestroyed(ISurfaceHolder holder)
         {
             _surfaceReady = false;
-            _host?.Stop();
+            Interlocked.Increment(ref _surfaceGeneration);
+            AndroidHost host = _host;
             _host = null;
+            if (host != null) _ = Task.Run(host.Stop);
         }
 
         private async Task StartGame(string path)
         {
+            AndroidHost host = _host;
+            if (host == null)
+            {
+                _pendingGame = path;
+                return;
+            }
+
             try
             {
                 _status.Text = "Carregando jogo...";
-                bool loaded = await Task.Run(() => _host.LoadGame(path));
+                bool loaded = await Task.Run(() => host.LoadGame(path));
+                if (_host != host) return;
                 _status.Text = loaded ? "Jogo carregado." : "O Ryujinx não reconheceu o jogo. Confira keys e firmware.";
-                if (loaded) _host.StartRenderLoop();
+                if (loaded) host.StartRenderLoop();
             }
-            catch (Exception ex) { _status.Text = "Falha ao carregar: " + ex.Message; }
+            catch (Exception ex)
+            {
+                if (_host == host) _status.Text = "Falha ao carregar: " + ex.Message;
+            }
         }
 
         protected override void OnDestroy()
         {
-            _host?.Stop();
+            AndroidHost host = _host;
+            _host = null;
+            if (host != null) _ = Task.Run(host.Stop);
             base.OnDestroy();
         }
 
         [DllImport("ryujinx_android", EntryPoint = "Java_com_ryujinx_android_NativeWindowBridge_fromSurface")]
         private static extern long NativeFromSurface(IntPtr env, IntPtr clazz, IntPtr surface);
 
-        [DllImport("ryujinx_android", EntryPoint = "Java_com_ryujinx_android_NativeWindowBridge_release")]
-        private static extern void NativeReleaseWindow(IntPtr env, IntPtr clazz, long window);
+        [DllImport("ryujinx_android", EntryPoint = "ryujinx_android_release_window")]
+        private static extern void NativeReleaseWindow(long window);
 
         private sealed class AndroidHost
         {
@@ -411,7 +460,7 @@ namespace Ryujinx.Android
                 try { _renderTask?.Wait(1500); } catch { }
                 _device?.DisposeGpu();
                 _device?.Dispose();
-                NativeReleaseWindow(JNIEnv.Handle, IntPtr.Zero, _nativeWindow);
+                NativeReleaseWindow(_nativeWindow);
             }
         }
     }
