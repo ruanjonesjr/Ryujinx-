@@ -17,8 +17,51 @@ namespace Ryujinx.Android
 
         public bool DisplayInputDialog(SoftwareKeyboardUIArgs args, out string userText)
         {
-            userText = null;
-            return false;
+            userText = args.InitialText ?? string.Empty;
+            if (global::Android.OS.Looper.MyLooper() == global::Android.OS.Looper.MainLooper)
+                return false;
+
+            string result = null;
+            bool accepted = false;
+            var completed = new System.Threading.ManualResetEventSlim(false);
+
+            _activity.RunOnUiThread(() =>
+            {
+                var input = new EditText(_activity) { Text = args.InitialText ?? string.Empty };
+                if (args.StringLengthMax > 0)
+                {
+                    input.SetFilters(new global::Android.Text.IInputFilter[]
+                    {
+                        new global::Android.Text.InputFilterLengthFilter(args.StringLengthMax)
+                    });
+                }
+
+                var builder = new AlertDialog.Builder(_activity);
+                if (!string.IsNullOrWhiteSpace(args.HeaderText))
+                    builder.SetTitle(args.HeaderText);
+                if (!string.IsNullOrWhiteSpace(args.SubtitleText))
+                    builder.SetMessage(args.SubtitleText);
+                builder.SetView(input);
+                builder.SetPositiveButton(
+                    string.IsNullOrWhiteSpace(args.SubmitText) ? "OK" : args.SubmitText,
+                    (sender, eventArgs) =>
+                    {
+                        result = input.Text ?? string.Empty;
+                        accepted = true;
+                        completed.Set();
+                    });
+                builder.SetNegativeButton("Cancelar", (sender, eventArgs) => completed.Set());
+
+                var dialog = builder.Create();
+                dialog.SetCancelable(false);
+                dialog.Show();
+            });
+
+            if (!completed.Wait(System.TimeSpan.FromMinutes(5)))
+                return false;
+
+            userText = result ?? string.Empty;
+            return accepted && userText.Length >= args.StringLengthMin;
         }
 
         public bool DisplayMessageDialog(string title, string message)
