@@ -351,10 +351,10 @@ namespace Ryujinx.Android
                 if (action == "game")
                 {
                     string ext = Path.GetExtension(target).ToLowerInvariant();
-                    if (ext != ".xci" && ext != ".nsp" && ext != ".nro")
+                    if (ext != ".xci" && ext != ".nsp" && ext != ".pfs0" && ext != ".nca" && ext != ".nro")
                     {
                         File.Delete(target);
-                        throw new InvalidOperationException("Formato não suportado. Selecione um arquivo .XCI, .NSP ou .NRO.");
+                        throw new InvalidOperationException("Formato não suportado. Selecione .XCI, .NSP, .PFS0, .NCA ou .NRO.");
                     }
                     GetSharedPreferences("ryujinx_android", FileCreationMode.Private)
                         .Edit().PutString("last_game", target).Apply();
@@ -657,7 +657,8 @@ namespace Ryujinx.Android
                 WriteDiagnostic($"Load request: {Path.GetFileName(path)} | format={ext} | bytes={new FileInfo(path).Length} | prod.keys={hasProdKeys}");
 
                 bool loaded = ext == ".xci" ? _device.LoadXci(path) :
-                              ext == ".nsp" ? _device.LoadNsp(path) :
+                              ext == ".nsp" || ext == ".pfs0" ? _device.LoadNsp(path) :
+                              ext == ".nca" ? _device.LoadNca(path) :
                               ext == ".nro" ? _device.LoadProgram(path) : false;
 
                 WriteDiagnostic($"Load result: {loaded}");
