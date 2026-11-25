@@ -78,6 +78,10 @@ namespace Ryujinx.Android
             AddPadButton(pad, "ZL", ControllerKeys.Zl);
             AddPadButton(pad, "ZR", ControllerKeys.Zr);
             root.AddView(pad, new LinearLayout.LayoutParams(-1, -2));
+            var sticks = new LinearLayout(this) { Orientation = Orientation.Horizontal };
+            AddStickControl(sticks, "ANALÓGICO ESQUERDO", true);
+            AddStickControl(sticks, "ANALÓGICO DIREITO", false);
+            root.AddView(sticks, new LinearLayout.LayoutParams(-1, 150));
             root.AddView(_status);
             SetContentView(root);
             Directory.CreateDirectory(Path.Combine(FilesDir.AbsolutePath, "Ryujinx"));
@@ -95,6 +99,34 @@ namespace Ryujinx.Android
                 e.Handled = true;
             };
             row.AddView(button, new LinearLayout.LayoutParams(0, -2, 1));
+        }
+
+        private void AddStickControl(LinearLayout row, string label, bool left)
+        {
+            var stick = new TextView(this)
+            {
+                Text = label + "\\narraste para mover",
+                Gravity = GravityFlags.Center,
+                TextSize = 12
+            };
+            stick.SetBackgroundColor(unchecked((int)0xFF30343B));
+            stick.SetTextColor(global::Android.Graphics.Color.White);
+            stick.Touch += (_, e) =>
+            {
+                if (e.Event.Action == MotionEventActions.Down || e.Event.Action == MotionEventActions.Move)
+                {
+                    float nx = Math.Clamp((e.Event.GetX() / Math.Max(1, stick.Width)) * 2f - 1f, -1f, 1f);
+                    float ny = Math.Clamp(1f - (e.Event.GetY() / Math.Max(1, stick.Height)) * 2f, -1f, 1f);
+                    _host?.SetStick(left, (int)(nx * 32767), (int)(ny * 32767));
+                }
+                else if (e.Event.Action == MotionEventActions.Up || e.Event.Action == MotionEventActions.Cancel)
+                {
+                    _host?.SetStick(left, 0, 0);
+                }
+                e.Handled = true;
+            };
+            var lp = new LinearLayout.LayoutParams(0, -1, 1) { LeftMargin = 8, RightMargin = 8, TopMargin = 8, BottomMargin = 8 };
+            row.AddView(stick, lp);
         }
 
         private void PickFile(int request, string mime, string action)
@@ -213,6 +245,8 @@ namespace Ryujinx.Android
             private CancellationTokenSource _renderCancellation;
             private Task _renderTask;
             private ControllerKeys _buttons;
+            private JoystickPosition _leftStick;
+            private JoystickPosition _rightStick;
 
             public AndroidHost(MainActivity activity, long nativeWindow)
             {
@@ -254,9 +288,27 @@ namespace Ryujinx.Android
             public void SetButton(ControllerKeys key, bool pressed)
             {
                 if (pressed) _buttons |= key; else _buttons &= ~key;
-                _device.Hid.Npads.Update(new System.Collections.Generic.List<GamepadInput>
+                PushInput();
+            }
+
+            public void SetStick(bool left, int x, int y)
+            {
+                if (left) _leftStick = new JoystickPosition { Dx = x, Dy = y };
+                else _rightStick = new JoystickPosition { Dx = x, Dy = y };
+                PushInput();
+            }
+
+            private void PushInput()
+            {
+                _device?.Hid.Npads.Update(new System.Collections.Generic.List<GamepadInput>
                 {
-                    new GamepadInput { PlayerId = PlayerIndex.Handheld, Buttons = _buttons }
+                    new GamepadInput
+                    {
+                        PlayerId = PlayerIndex.Handheld,
+                        Buttons = _buttons,
+                        LStick = _leftStick,
+                        RStick = _rightStick
+                    }
                 });
             }
 
