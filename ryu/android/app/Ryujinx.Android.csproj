@@ -9,15 +9,16 @@
     <ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
     <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
     <AndroidMinSdkVersion>26</AndroidMinSdkVersion>
-    <AndroidSupportedAbis>arm64-v8a</AndroidSupportedAbis>
+    <RuntimeIdentifiers>android-arm64</RuntimeIdentifiers>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Nullable>disable</Nullable>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Ryujinx.HLE/Ryujinx.HLE.csproj" />
     <ProjectReference Include="../Ryujinx.Graphics.Vulkan/Ryujinx.Graphics.Vulkan.csproj" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Android" />
   </ItemGroup>
   <ItemGroup>
-    <AndroidNativeLibrary Include="native/arm64-v8a/libryujinx_android.so" />
+    <AndroidNativeLibrary Include="native/arm64-v8a/libryujinx_android.so" Abi="arm64-v8a" />
   </ItemGroup>
 </Project>
