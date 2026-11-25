@@ -143,7 +143,24 @@ jobs:
           test -d "$NDK"
           git clone --depth 1 https://github.com/google/shaderc.git third_party/shaderc
           python3 third_party/shaderc/utils/git-sync-deps
-          cmake -S third_party/shaderc -B build/shaderc-android -G Ninja \
+          # glslang is embedded as a shaderc dependency, not installed as a standalone package.
+          # Its top-level install(EXPORT) currently fails because SPIRV-Tools-opt is not in
+          # glslang-targets. Disable only that package-export block in the vendored dependency.
+          GLSLANG_CMAKE="third_party/shaderc/third_party/glslang/CMakeLists.txt"
+          test -s "$GLSLANG_CMAKE"
+          python3 - "$GLSLANG_CMAKE" <<'PY'
+          from pathlib import Path
+          import sys
+          path = Path(sys.argv[1])
+          source = path.read_text()
+          needle = "if (GLSLANG_ENABLE_INSTALL)"
+          replacement = "if (GLSLANG_ENABLE_INSTALL AND PROJECT_IS_TOP_LEVEL)"
+          if source.count(needle) != 1:
+              raise SystemExit(f"Expected exactly one glslang install-export guard, found {source.count(needle)}")
+          path.write_text(source.replace(needle, replacement, 1))
+          PY
+          grep -nF 'if (GLSLANG_ENABLE_INSTALL AND PROJECT_IS_TOP_LEVEL)' "$GLSLANG_CMAKE"
+          cmake -S third_party/shaderc -B build/shaderc-android -G Ninja -B build/shaderc-android -G Ninja \
             -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
             -DANDROID_ABI=arm64-v8a \
             -DANDROID_PLATFORM=android-26 \
