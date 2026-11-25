@@ -83,6 +83,8 @@ jobs:
           SOURCE_REPO_ROOT="$(dirname "$RYUJINX_SOURCE_ROOT")"
           cd "$SOURCE_REPO_ROOT"
           patch --batch --forward -p1 < "$GITHUB_WORKSPACE/patches/0003-enable-android-arm64-core-memory-and-jit.patch"
+          patch --batch --forward -p1 < "$GITHUB_WORKSPACE/patches/0004-android-jit-wx-memory.patch"
+          grep -q 'OperatingSystem.IsAndroid()' "$RYUJINX_SOURCE_ROOT/ARMeilleure/Translation/Cache/JitCache.cs"
           grep -q 'OperatingSystem.IsAndroid()' "$RYUJINX_SOURCE_ROOT/Ryujinx.Memory/MemoryManagement.cs"
           grep -q 'ASharedMemory_create' "$RYUJINX_SOURCE_ROOT/Ryujinx.Memory/MemoryManagementUnix.cs"
           grep -q 'OperatingSystem.IsAndroid()' "$RYUJINX_SOURCE_ROOT/ARMeilleure/Signal/NativeSignalHandlerGenerator.cs"
