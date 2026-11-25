@@ -150,7 +150,8 @@ namespace Ryujinx.Android
         private void ShowEditor()
         {
             if (_dialog?.IsShowing == true) return;
-            _input = new EditText(_activity) { SingleLine = true, Hint = "Digite aqui" };
+            _input = new EditText(_activity) { Hint = "Digite aqui" };
+            _input.SetSingleLine(true);
             _input.TextChanged += (sender, args) =>
             {
                 if (_updating || !_enabled) return;
