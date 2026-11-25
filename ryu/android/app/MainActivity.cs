@@ -26,7 +26,7 @@ using System.Threading.Tasks;
 
 namespace Ryujinx.Android
 {
-    [Activity(Label = "Ryujinx Android", MainLauncher = true, Exported = true,
+    [Activity(Label = "Ryujinx Android", Exported = true,
         ConfigurationChanges = global::Android.Content.PM.ConfigChanges.Orientation |
                               global::Android.Content.PM.ConfigChanges.ScreenSize |
                               global::Android.Content.PM.ConfigChanges.KeyboardHidden,
@@ -40,6 +40,7 @@ namespace Ryujinx.Android
         private SurfaceView _surfaceView;
         private TextView _status;
         private ProgressBar _importProgress;
+        private LinearLayout _bottomPanel;
         private volatile bool _isImporting;
         private volatile AndroidHost _host;
         private string _pendingAction;
@@ -99,8 +100,9 @@ namespace Ryujinx.Android
             topPanel.AddView(_importProgress, new LinearLayout.LayoutParams(-1, 5));
             root.AddView(topPanel, new FrameLayout.LayoutParams(-1, -2, GravityFlags.Top));
 
-            var bottomPanel = new LinearLayout(this) { Orientation = Orientation.Vertical };
-            bottomPanel.SetBackgroundColor(global::Android.Graphics.Color.Argb(150, 20, 22, 26));
+            _bottomPanel = new LinearLayout(this) { Orientation = Orientation.Vertical };
+            _bottomPanel.SetBackgroundColor(global::Android.Graphics.Color.Argb(150, 20, 22, 26));
+            _bottomPanel.Visibility = global::Android.Views.ViewStates.Gone;
             var pad = new LinearLayout(this) { Orientation = Orientation.Vertical };
 
             var directions = new LinearLayout(this) { Orientation = Orientation.Horizontal };
@@ -129,13 +131,13 @@ namespace Ryujinx.Android
             AddPadButton(shoulderButtons, "SL", ControllerKeys.Sl);
             AddPadButton(shoulderButtons, "SR", ControllerKeys.Sr);
             pad.AddView(shoulderButtons, new LinearLayout.LayoutParams(-1, 38));
-            bottomPanel.AddView(pad);
+            _bottomPanel.AddView(pad);
 
             var sticks = new LinearLayout(this) { Orientation = Orientation.Horizontal };
             AddStickControl(sticks, "ANALÓGICO ESQUERDO", true);
             AddStickControl(sticks, "ANALÓGICO DIREITO", false);
-            bottomPanel.AddView(sticks, new LinearLayout.LayoutParams(-1, 100));
-            root.AddView(bottomPanel, new FrameLayout.LayoutParams(-1, -2, GravityFlags.Bottom));
+            _bottomPanel.AddView(sticks, new LinearLayout.LayoutParams(-1, 100));
+            root.AddView(_bottomPanel, new FrameLayout.LayoutParams(-1, -2, GravityFlags.Bottom));
 
             SetContentView(root);
             Directory.CreateDirectory(Path.Combine(FilesDir.AbsolutePath, "Ryujinx"));
@@ -512,7 +514,7 @@ namespace Ryujinx.Android
                 _status.Text = "Inicializando Vulkan...";
                 _ = InitializeHostAsync(nativeWindow, generation);
             }
-            catch (Exception ex) { _status.Text = "Erro Vulkan: " + ex.Message; }
+            catch (Exception ex) { ReportVulkanError(ex); }
         }
 
         private async Task InitializeHostAsync(long nativeWindow, int generation)
@@ -546,7 +548,7 @@ namespace Ryujinx.Android
                 else NativeReleaseWindow(nativeWindow);
 
                 if (_surfaceReady && generation == Volatile.Read(ref _surfaceGeneration))
-                    _status.Text = "Erro Vulkan: " + ex.Message;
+                    ReportVulkanError(ex);
             }
         }
 
@@ -581,12 +583,43 @@ namespace Ryujinx.Android
                 bool loaded = await Task.Run(() => host.LoadGame(path));
                 if (_host != host) return;
                 _status.Text = loaded ? "Jogo carregado." : "O Ryujinx não reconheceu o jogo. Confira keys e firmware.";
-                if (loaded) host.StartRenderLoop();
+                if (loaded)
+                {
+                    _bottomPanel.Visibility = global::Android.Views.ViewStates.Visible;
+                    host.StartRenderLoop();
+                }
             }
             catch (Exception ex)
             {
                 if (_host == host) _status.Text = "Falha ao carregar: " + ex.Message;
             }
+        }
+
+        private void ReportVulkanError(Exception ex)
+        {
+            string details = ex.ToString();
+            try
+            {
+                string path = Path.Combine(FilesDir.AbsolutePath, "Ryujinx", "android-vulkan-error.log");
+                File.AppendAllText(path, DateTime.UtcNow.ToString("O") + Environment.NewLine + details + Environment.NewLine + Environment.NewLine);
+            }
+            catch { }
+
+            _status.Text = "Falha ao iniciar Vulkan. Toque para ver detalhes.";
+            _status.Click -= ShowVulkanErrorDetails;
+            _status.Click += ShowVulkanErrorDetails;
+            _lastVulkanError = details;
+        }
+
+        private string _lastVulkanError;
+
+        private void ShowVulkanErrorDetails(object sender, EventArgs e)
+        {
+            new AlertDialog.Builder(this)
+                .SetTitle("Diagnóstico Vulkan")
+                .SetMessage(_lastVulkanError ?? "Sem detalhes disponíveis.")
+                .SetPositiveButton("OK", (_, _) => { })
+                .Show();
         }
 
         protected override void OnDestroy()
