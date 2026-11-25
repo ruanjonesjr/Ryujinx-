@@ -601,7 +601,7 @@ namespace Ryujinx.Android
             try
             {
                 string path = Path.Combine(FilesDir.AbsolutePath, "Ryujinx", "android-vulkan-error.log");
-                File.AppendAllText(path, DateTime.UtcNow.ToString("O") + Environment.NewLine + details + Environment.NewLine + Environment.NewLine);
+                File.AppendAllText(path, DateTime.UtcNow.ToString("O") + System.Environment.NewLine + details + Environment.NewLine + Environment.NewLine);
             }
             catch { }
 
