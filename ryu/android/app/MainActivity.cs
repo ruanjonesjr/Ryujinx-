@@ -15,6 +15,7 @@ using Ryujinx.HLE.HOS.SystemState;
 using Ryujinx.HLE.HOS.Services.Hid;
 using RyujinxSwitch = Ryujinx.HLE.Switch;
 using Ryujinx.Graphics.GAL;
+using Ryujinx.Graphics.Gpu;
 using LibHac.Tools.FsSystem;
 using Silk.NET.Vulkan;
 using System;
@@ -569,6 +570,9 @@ namespace Ryujinx.Android
                     string data = Path.Combine(activity.FilesDir.AbsolutePath, "Ryujinx");
                     Directory.CreateDirectory(data);
                     AppDataManager.Initialize(data);
+                    // Match the desktop/headless frontend: shader caching is enabled there.
+                    // Without this, every launch recompiles shaders and can cause severe stutter.
+                    GraphicsConfig.EnableShaderCache = true;
 
                     _vfs = VirtualFileSystem.CreateInstance();
                     _libHac = new LibHacHorizonManager();
@@ -649,9 +653,25 @@ namespace Ryujinx.Android
             {
                 _vfs.ReloadKeySet();
                 string ext = Path.GetExtension(path).ToLowerInvariant();
-                return ext == ".xci" ? _device.LoadXci(path) :
-                       ext == ".nsp" ? _device.LoadNsp(path) :
-                       ext == ".nro" ? _device.LoadProgram(path) : false;
+                bool hasProdKeys = File.Exists(Path.Combine(AppDataManager.KeysDirPath, "prod.keys"));
+                WriteDiagnostic($"Load request: {Path.GetFileName(path)} | format={ext} | bytes={new FileInfo(path).Length} | prod.keys={hasProdKeys}");
+
+                bool loaded = ext == ".xci" ? _device.LoadXci(path) :
+                              ext == ".nsp" ? _device.LoadNsp(path) :
+                              ext == ".nro" ? _device.LoadProgram(path) : false;
+
+                WriteDiagnostic($"Load result: {loaded}");
+                return loaded;
+            }
+
+            private void WriteDiagnostic(string message)
+            {
+                try
+                {
+                    string logPath = Path.Combine(AppDataManager.BaseDirPath, "android-emulation.log");
+                    File.AppendAllText(logPath, DateTime.UtcNow.ToString("O") + " " + message + System.Environment.NewLine);
+                }
+                catch { }
             }
 
             public void Resize(int width, int height)
