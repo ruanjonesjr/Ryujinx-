@@ -204,8 +204,6 @@ namespace Ryujinx.Android
                 var persistence = new UserChannelPersistence();
 
                 _renderer = new VulkanRenderer(Vk.GetApi(), new IntPtr(nativeWindow), "");
-                _renderer.Initialize(GraphicsDebugLevel.None);
-
                 var configuration = new HLEConfiguration(
                     _vfs, _libHac, _content, accounts, persistence, _renderer,
                     new DummyHardwareDeviceDriver(),
@@ -219,6 +217,7 @@ namespace Ryujinx.Android
                     true, AspectRatio.Fixed16x9, 1.0f, false, "",
                     Ryujinx.Common.Configuration.Multiplayer.MultiplayerMode.Disabled);
                 _device = new Switch(configuration);
+                _renderer.Initialize(GraphicsDebugLevel.None);
             }
 
             public void ReloadKeys() => _vfs.ReloadKeySet();
@@ -243,7 +242,7 @@ namespace Ryujinx.Android
             {
                 if (_renderCancellation != null) return;
                 _renderCancellation = new CancellationTokenSource();
-                _renderTask = Task.Run(() => _renderer.RunLoop(() =>
+                _renderTask = Task.Run(() => ((IRenderer)_renderer).RunLoop(() =>
                 {
                     _device.Gpu.SetGpuThread();
                     _device.Gpu.InitializeShaderCache(_renderCancellation.Token);
