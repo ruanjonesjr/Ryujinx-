@@ -1,5 +1,4 @@
 using Android.App;
-using Android.Graphics;
 using Android.Content;
 using Android.OS;
 using Android.Views;
@@ -14,6 +13,7 @@ using Ryujinx.HLE.HOS;
 using Ryujinx.HLE.HOS.Services.Account.Acc;
 using Ryujinx.HLE.HOS.SystemState;
 using Ryujinx.HLE.HOS.Services.Hid;
+using RyujinxSwitch = Ryujinx.HLE.Switch;
 using Ryujinx.Audio.Backends.Dummy;
 using Ryujinx.Graphics.GAL;
 using LibHac.FsSystem;
@@ -27,10 +27,10 @@ using System.Threading.Tasks;
 namespace Ryujinx.Android
 {
     [Activity(Label = "Ryujinx Android", MainLauncher = true, Exported = true,
-        ConfigurationChanges = Android.Content.PM.ConfigChanges.Orientation |
+        ConfigurationChanges = global::Android.Content.PM.ConfigChanges.Orientation |
                               Android.Content.PM.ConfigChanges.ScreenSize |
                               Android.Content.PM.ConfigChanges.KeyboardHidden,
-        ScreenOrientation = Android.Content.PM.ScreenOrientation.SensorLandscape)]
+        ScreenOrientation = global::Android.Content.PM.ScreenOrientation.SensorLandscape)]
     public sealed class MainActivity : Activity, ISurfaceHolderCallback
     {
         private const int PickGameRequest = 10;
@@ -93,10 +93,10 @@ namespace Ryujinx.Android
             StartActivityForResult(intent, request);
         }
 
-        protected override void OnActivityResult(int requestCode, Result resultCode, Intent data)
+        protected override void OnActivityResult(int requestCode, Android.App.Result resultCode, Intent data)
         {
             base.OnActivityResult(requestCode, resultCode, data);
-            if (resultCode != Result.Ok || data?.Data == null) return;
+            if (resultCode != Android.App.Result.Ok || data?.Data == null) return;
             try
             {
                 string name = QueryDisplayName(data.Data) ?? (_pendingAction == "keys" ? "prod.keys" : "selected-file");
@@ -130,11 +130,11 @@ namespace Ryujinx.Android
 
         private string _pendingGame;
 
-        private string QueryDisplayName(Android.Net.Uri uri)
+        private string QueryDisplayName(global::Android.Net.Uri uri)
         {
             using var cursor = ContentResolver.Query(uri, null, null, null, null);
             if (cursor == null || !cursor.MoveToFirst()) return null;
-            int index = cursor.GetColumnIndex(Android.Provider.OpenableColumns.DisplayName);
+            int index = cursor.GetColumnIndex(global::Android.Provider.OpenableColumns.DisplayName);
             return index >= 0 ? cursor.GetString(index) : null;
         }
 
@@ -152,7 +152,7 @@ namespace Ryujinx.Android
             catch (Exception ex) { _status.Text = "Erro Vulkan: " + ex.Message; }
         }
 
-        public void SurfaceChanged(ISurfaceHolder holder, Format format, int width, int height)
+        public void SurfaceChanged(ISurfaceHolder holder, global::Android.Graphics.Format format, int width, int height)
         {
             _host?.Resize(width, height);
         }
@@ -196,7 +196,7 @@ namespace Ryujinx.Android
             private readonly ContentManager _content;
             private readonly LibHacHorizonManager _libHac;
             private readonly VulkanRenderer _renderer;
-            private Switch _device;
+            private RyujinxSwitch _device;
             private CancellationTokenSource _renderCancellation;
             private Task _renderTask;\n            private ControllerKeys _buttons;
 
@@ -231,7 +231,7 @@ namespace Ryujinx.Android
                     MemoryManagerMode.HostMapped,
                     true, AspectRatio.Fixed16x9, 1.0f, false, "",
                     Ryujinx.Common.Configuration.Multiplayer.MultiplayerMode.Disabled);
-                _device = new Switch(configuration);
+                _device = new RyujinxSwitch(configuration);
                 _renderer.Initialize(GraphicsDebugLevel.None);
             }
 
