@@ -137,6 +137,44 @@ jobs:
           "$LLVM_NM" -D --defined-only audit/android-arm64/libryujinx_android.so | grep 'Java_com_ryujinx_android_NativeWindowBridge_fromSurface'
           "$LLVM_NM" -D --defined-only audit/android-arm64/libryujinx_android.so | grep 'Java_com_ryujinx_android_NativeWindowBridge_release'
 
+      - name: Build native Android ARM64 APK with original Ryujinx core
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y openjdk-17-jdk
+          mkdir -p "$RYUJINX_SOURCE_ROOT/Ryujinx.Android/native/arm64-v8a"
+          cp -R ryu/android/app/. "$RYUJINX_SOURCE_ROOT/Ryujinx.Android/"
+          cp build/android-native/libryujinx_android.so "$RYUJINX_SOURCE_ROOT/Ryujinx.Android/native/arm64-v8a/"
+          dotnet workload install android
+          keytool -genkeypair -v -keystore "$GITHUB_WORKSPACE/android-release.keystore" -alias ryujinx -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Ryujinx Android"
+          mkdir -p "$GITHUB_WORKSPACE/artifacts"
+          dotnet publish "$RYUJINX_SOURCE_ROOT/Ryujinx.Android/Ryujinx.Android.csproj" \
+            --configuration Release \
+            --framework net8.0-android \
+            --output "$GITHUB_WORKSPACE/artifacts" \
+            -p:AndroidPackageFormat=apk \
+            -p:AndroidKeyStore=true \
+            -p:AndroidSigningKeyStore="$GITHUB_WORKSPACE/android-release.keystore" \
+            -p:AndroidSigningKeyAlias=ryujinx \
+            -p:AndroidSigningKeyPass=android \
+            -p:AndroidSigningStorePass=android \
+            -p:AndroidSupportedAbis=arm64-v8a
+          APK="$(find "$GITHUB_WORKSPACE/artifacts" -maxdepth 1 -type f -name '*Signed.apk' -print -quit)"
+          if [ -z "$APK" ]; then
+            APK="$(find "$GITHUB_WORKSPACE/artifacts" -maxdepth 1 -type f -name '*.apk' -print -quit)"
+          fi
+          test -n "$APK"
+          cp "$APK" "$GITHUB_WORKSPACE/artifacts/Ryujinx-Android.apk"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$GITHUB_WORKSPACE/artifacts/Ryujinx-Android.apk" | head -20
+
+      - name: Upload installable Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ryujinx-Android-APK
+          path: artifacts/Ryujinx-Android.apk
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Inventory original projects and Android blockers
         shell: bash
         run: |
@@ -176,13 +214,13 @@ jobs:
             echo "# Android host integration API inventory"
             echo
             echo "## HLE device and launch APIs"
-            grep -RInsE 'class Switch|public Switch\\(|LoadXci|LoadNsp|LoadRom|LoadApplication|class HLEConfiguration|record HLEConfiguration' "$RYUJINX_SOURCE_ROOT" --include='*.cs' | head -400 || true
+            grep -RInsE 'class Switch|public Switch|LoadXci|LoadNsp|LoadRom|LoadApplication|class HLEConfiguration|record HLEConfiguration' "$RYUJINX_SOURCE_ROOT" --include='*.cs' | head -400 || true
             echo
             echo "## Existing frontend device initialization"
-            grep -RInsE 'new Switch\\(|new HLEConfiguration|LoadXci|LoadNsp|LoadApplication' "$RYUJINX_SOURCE_ROOT" --include='*.cs' | head -400 || true
+            grep -RInsE 'new Switch|new HLEConfiguration|LoadXci|LoadNsp|LoadApplication' "$RYUJINX_SOURCE_ROOT" --include='*.cs' | head -400 || true
             echo
             echo "## Renderer surface and window coupling"
-            grep -RInsE 'IWindow|IHostUI|WindowSize|Surface|VulkanRenderer\\(' "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan" "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.GAL" --include='*.cs' | head -300 || true
+            grep -RInsE 'IWindow|IHostUI|WindowSize|Surface|VulkanRenderer' "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.Vulkan" "$RYUJINX_SOURCE_ROOT/Ryujinx.Graphics.GAL" --include='*.cs' | head -300 || true
             echo
             echo "## Audio and input abstractions"
             grep -RInsE 'interface I.*Audio|interface I.*Input|IAudioOut|IHostAudio|IInput' "$RYUJINX_SOURCE_ROOT/Ryujinx.Audio" "$RYUJINX_SOURCE_ROOT/Ryujinx.Input" --include='*.cs' | head -300 || true
