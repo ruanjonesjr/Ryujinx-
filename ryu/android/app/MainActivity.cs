@@ -14,7 +14,7 @@ using Ryujinx.HLE.HOS.Services.Account.Acc;
 using Ryujinx.HLE.HOS.SystemState;
 using Ryujinx.HLE.HOS.Services.Hid;
 using RyujinxSwitch = Ryujinx.HLE.Switch;
-using Ryujinx.Audio.Backends.Dummy;
+using Ryujinx.Audio.Backends.CompatLayer;
 using Ryujinx.Graphics.GAL;
 using LibHac.Tools.FsSystem;
 using Silk.NET.Vulkan;
@@ -235,7 +235,7 @@ namespace Ryujinx.Android
                 _renderer = new VulkanRenderer(Vk.GetApi(), new IntPtr(nativeWindow), "");
                 var configuration = new HLEConfiguration(
                     _vfs, _libHac, _content, accounts, persistence, _renderer,
-                    new DummyHardwareDeviceDriver(),
+                    new CompatLayerHardwareDeviceDriver(new AndroidAudioHardwareDeviceDriver()),
                     MemoryConfiguration.MemoryConfiguration4GiB,
                     new AndroidHostUIHandler(activity),
                     SystemLanguage.BrazilianPortuguese,
