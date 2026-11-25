@@ -601,7 +601,7 @@ namespace Ryujinx.Android
             try
             {
                 string path = Path.Combine(FilesDir.AbsolutePath, "Ryujinx", "android-vulkan-error.log");
-                File.AppendAllText(path, DateTime.UtcNow.ToString("O") + System.Environment.NewLine + details + Environment.NewLine + Environment.NewLine);
+                File.AppendAllText(path, DateTime.UtcNow.ToString("O") + System.System.Environment.NewLine + details + System.Environment.NewLine + System.Environment.NewLine);
             }
             catch { }
 
@@ -790,7 +790,7 @@ namespace Ryujinx.Android
                 try
                 {
                     string logPath = Path.Combine(AppDataManager.BaseDirPath, "android-emulation.log");
-                    File.AppendAllText(logPath, DateTime.UtcNow.ToString("O") + " " + message + System.Environment.NewLine);
+                    File.AppendAllText(logPath, DateTime.UtcNow.ToString("O") + " " + message + System.System.Environment.NewLine);
                 }
                 catch { }
             }
@@ -827,7 +827,7 @@ namespace Ryujinx.Android
                         try
                         {
                             string log = Path.Combine(_activity.FilesDir.AbsolutePath, "Ryujinx", "android-crash.log");
-                            File.AppendAllText(log, DateTime.UtcNow.ToString("O") + System.Environment.NewLine + ex + System.Environment.NewLine + System.Environment.NewLine);
+                            File.AppendAllText(log, DateTime.UtcNow.ToString("O") + System.System.Environment.NewLine + ex + System.System.Environment.NewLine + System.System.Environment.NewLine);
                         }
                         catch { }
                     }
