@@ -790,6 +790,12 @@ namespace Ryujinx.Android
 
                     VerifyShaderCompiler();
                     renderer = new VulkanRenderer(Vk.GetApi(), new IntPtr(nativeWindow), "");
+                    // Initialize the Vulkan renderer before constructing HLE.
+                    // Ryujinx's GPU subsystem may query renderer capabilities during
+                    // Switch construction, so initializing it afterwards can abort
+                    // engine startup on Android.
+                    renderer.Initialize(GraphicsDebugLevel.None);
+
                     var configuration = new HLEConfiguration(
                         _vfs, _libHac, _content, accounts, persistence, renderer,
                         new AndroidAudioHardwareDeviceDriver(),
@@ -803,7 +809,6 @@ namespace Ryujinx.Android
                         true, AspectRatio.Fixed16x9, 1.0f, false, "",
                         Ryujinx.Common.Configuration.Multiplayer.MultiplayerMode.Disabled);
                     device = new RyujinxSwitch(configuration);
-                    renderer.Initialize(GraphicsDebugLevel.None);
 
                     _renderer = renderer;
                     _device = device;
