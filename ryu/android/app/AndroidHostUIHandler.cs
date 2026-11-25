@@ -4,6 +4,7 @@ using Ryujinx.HLE;
 using Ryujinx.HLE.HOS.Applets;
 using Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.ApplicationProxy.Types;
 using Ryujinx.HLE.UI;
+using RyujinxSwitch = Ryujinx.HLE.Switch;
 
 namespace Ryujinx.Android
 {
@@ -28,7 +29,7 @@ namespace Ryujinx.Android
 
         public bool DisplayMessageDialog(ControllerAppletUIArgs args) => true;
 
-        public void ExecuteProgram(Switch device, ProgramSpecifyKind kind, ulong value) { }
+        public void ExecuteProgram(RyujinxSwitch device, ProgramSpecifyKind kind, ulong value) { }
 
         public bool DisplayErrorAppletDialog(string title, string message, string[] buttonsText)
             => DisplayMessageDialog(title, message);
