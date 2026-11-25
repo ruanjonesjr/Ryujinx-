@@ -138,6 +138,73 @@ namespace Ryujinx.Android
             _status.Text = "Aguardando superfície Vulkan...";
         }
 
+        public override bool OnKeyDown(global::Android.Views.Keycode keyCode, KeyEvent e)
+        {
+            ControllerKeys? key = MapPhysicalKey(keyCode);
+            if (key.HasValue)
+            {
+                _host?.SetButton(key.Value, true);
+                return true;
+            }
+            return base.OnKeyDown(keyCode, e);
+        }
+
+        public override bool OnKeyUp(global::Android.Views.Keycode keyCode, KeyEvent e)
+        {
+            ControllerKeys? key = MapPhysicalKey(keyCode);
+            if (key.HasValue)
+            {
+                _host?.SetButton(key.Value, false);
+                return true;
+            }
+            return base.OnKeyUp(keyCode, e);
+        }
+
+        private static ControllerKeys? MapPhysicalKey(global::Android.Views.Keycode keyCode)
+        {
+            return keyCode switch
+            {
+                global::Android.Views.Keycode.ButtonA => ControllerKeys.B,
+                global::Android.Views.Keycode.ButtonB => ControllerKeys.A,
+                global::Android.Views.Keycode.ButtonX => ControllerKeys.Y,
+                global::Android.Views.Keycode.ButtonY => ControllerKeys.X,
+                global::Android.Views.Keycode.ButtonL1 => ControllerKeys.L,
+                global::Android.Views.Keycode.ButtonR1 => ControllerKeys.R,
+                global::Android.Views.Keycode.ButtonL2 => ControllerKeys.Zl,
+                global::Android.Views.Keycode.ButtonR2 => ControllerKeys.Zr,
+                global::Android.Views.Keycode.ButtonStart => ControllerKeys.Plus,
+                global::Android.Views.Keycode.ButtonSelect => ControllerKeys.Minus,
+                global::Android.Views.Keycode.ButtonThumbl => ControllerKeys.LStick,
+                global::Android.Views.Keycode.ButtonThumbr => ControllerKeys.RStick,
+                global::Android.Views.Keycode.DpadUp => ControllerKeys.DpadUp,
+                global::Android.Views.Keycode.DpadDown => ControllerKeys.DpadDown,
+                global::Android.Views.Keycode.DpadLeft => ControllerKeys.DpadLeft,
+                global::Android.Views.Keycode.DpadRight => ControllerKeys.DpadRight,
+                _ => null
+            };
+        }
+
+        public override bool OnGenericMotionEvent(MotionEvent e)
+        {
+            if (e.Action == MotionEventActions.Move && _host != null)
+            {
+                const float deadzone = 0.16f;
+                float lx = ApplyDeadzone(e.GetAxisValue(global::Android.Views.Axis.X), deadzone);
+                float ly = -ApplyDeadzone(e.GetAxisValue(global::Android.Views.Axis.Y), deadzone);
+                float rx = ApplyDeadzone(e.GetAxisValue(global::Android.Views.Axis.Z), deadzone);
+                float ry = -ApplyDeadzone(e.GetAxisValue(global::Android.Views.Axis.Rz), deadzone);
+                _host.SetStick(true, (int)(lx * 32767), (int)(ly * 32767));
+                _host.SetStick(false, (int)(rx * 32767), (int)(ry * 32767));
+                return true;
+            }
+            return base.OnGenericMotionEvent(e);
+        }
+
+        private static float ApplyDeadzone(float value, float deadzone)
+        {
+            return Math.Abs(value) < deadzone ? 0f : Math.Clamp(value, -1f, 1f);
+        }
+
         private void AddPadButton(LinearLayout row, string label, ControllerKeys key)
         {
             var button = new Button(this) { Text = label };
