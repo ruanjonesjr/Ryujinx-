@@ -28,8 +28,8 @@ namespace Ryujinx.Android
 {
     [Activity(Label = "Ryujinx Android", MainLauncher = true, Exported = true,
         ConfigurationChanges = global::Android.Content.PM.ConfigChanges.Orientation |
-                              Android.Content.PM.ConfigChanges.ScreenSize |
-                              Android.Content.PM.ConfigChanges.KeyboardHidden,
+                              global::Android.Content.PM.ConfigChanges.ScreenSize |
+                              global::Android.Content.PM.ConfigChanges.KeyboardHidden,
         ScreenOrientation = global::Android.Content.PM.ScreenOrientation.SensorLandscape)]
     public sealed class MainActivity : Activity, ISurfaceHolderCallback
     {
@@ -106,10 +106,10 @@ namespace Ryujinx.Android
             StartActivityForResult(intent, request);
         }
 
-        protected override void OnActivityResult(int requestCode, Android.App.Result resultCode, Intent data)
+        protected override void OnActivityResult(int requestCode, global::Android.App.Result resultCode, Intent data)
         {
             base.OnActivityResult(requestCode, resultCode, data);
-            if (resultCode != Android.App.Result.Ok || data?.Data == null) return;
+            if (resultCode != global::Android.App.Result.Ok || data?.Data == null) return;
             try
             {
                 string name = QueryDisplayName(data.Data) ?? (_pendingAction == "keys" ? "prod.keys" : "selected-file");
