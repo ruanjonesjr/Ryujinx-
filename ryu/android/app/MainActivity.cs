@@ -152,29 +152,58 @@ namespace Ryujinx.Android
 
         private void ShowPerformanceSettings()
         {
-            string[] labels =
-            {
-                "Desempenho - 0,5x (mais leve)",
-                "Equilibrado - 0,75x",
-                "Padrão - 1,0x",
-                "Qualidade - 1,25x"
-            };
             float[] scales = { 0.5f, 0.75f, 1.0f, 1.25f };
+            string[] labels = { "0,5x - desempenho", "0,75x - equilibrado", "1,0x - padrão", "1,25x - qualidade" };
             var preferences = GetSharedPreferences("ryujinx_android", FileCreationMode.Private);
             float current = preferences.GetFloat("resolution_scale", 0.75f);
             int selected = Array.IndexOf(scales, current);
             if (selected < 0) selected = 1;
 
+            var content = new LinearLayout(this) { Orientation = Orientation.Vertical };
+            content.SetPadding(32, 12, 32, 0);
+
+            var scaleLabel = new TextView(this) { Text = "Resolução interna", TextSize = 14 };
+            content.AddView(scaleLabel);
+            var scaleSpinner = new Spinner(this);
+            var adapter = new ArrayAdapter<string>(this, global::Android.Resource.Layout.SimpleSpinnerItem, labels);
+            adapter.SetDropDownViewResource(global::Android.Resource.Layout.SimpleSpinnerDropDownItem);
+            scaleSpinner.Adapter = adapter;
+            scaleSpinner.SetSelection(selected);
+            content.AddView(scaleSpinner);
+
+            var vsyncCheck = new CheckBox(this)
+            {
+                Text = "VSync (reduz cortes na imagem)",
+                Checked = preferences.GetBoolean("vsync", true)
+            };
+            content.AddView(vsyncCheck);
+
+            var dockedCheck = new CheckBox(this)
+            {
+                Text = "Modo Dock (maior carga no aparelho)",
+                Checked = preferences.GetBoolean("docked_mode", false)
+            };
+            content.AddView(dockedCheck);
+
             new AlertDialog.Builder(this)
-                .SetTitle("Escala de resolução")
-                .SetSingleChoiceItems(labels, selected, (_, args) =>
+                .SetTitle("Configurações de desempenho")
+                .SetView(content)
+                .SetNegativeButton("Cancelar", (_, _) => { })
+                .SetPositiveButton("Aplicar", (_, _) =>
                 {
-                    float scale = scales[args.Which];
-                    preferences.Edit().PutFloat("resolution_scale", scale).Apply();
+                    float scale = scales[Math.Max(0, scaleSpinner.SelectedItemPosition)];
+                    bool vsync = vsyncCheck.Checked;
+                    bool docked = dockedCheck.Checked;
+                    preferences.Edit()
+                        .PutFloat("resolution_scale", scale)
+                        .PutBoolean("vsync", vsync)
+                        .PutBoolean("docked_mode", docked)
+                        .Apply();
+
                     GraphicsConfig.ResScale = scale;
-                    _status.Text = $"Escala {scale:0.00}x salva. Reinicie o jogo para aplicar completamente.";
+                    _host?.ApplySettings(scale, vsync, docked);
+                    _status.Text = $"Configuração aplicada: {scale:0.00}x | {(docked ? "Dock" : "Handheld")}.";
                 })
-                .SetNegativeButton("Fechar", (_, _) => { })
                 .Show();
         }
 
@@ -603,9 +632,11 @@ namespace Ryujinx.Android
                     AppDataManager.Initialize(data);
                     // Match the desktop/headless frontend: shader caching is enabled there.
                     // Without this, every launch recompiles shaders and can cause severe stutter.
+                    var preferences = activity.GetSharedPreferences("ryujinx_android", FileCreationMode.Private);
+                    bool enableVsync = preferences.GetBoolean("vsync", true);
+                    bool enableDockedMode = preferences.GetBoolean("docked_mode", false);
                     GraphicsConfig.EnableShaderCache = true;
-                    GraphicsConfig.ResScale = activity.GetSharedPreferences("ryujinx_android", FileCreationMode.Private)
-                        .GetFloat("resolution_scale", 0.75f);
+                    GraphicsConfig.ResScale = preferences.GetFloat("resolution_scale", 0.75f);
 
                     _vfs = VirtualFileSystem.CreateInstance();
                     _libHac = new LibHacHorizonManager();
@@ -625,7 +656,7 @@ namespace Ryujinx.Android
                         new AndroidHostUIHandler(activity),
                         SystemLanguage.BrazilianPortuguese,
                         RegionCode.USA,
-                        true, false, true, false,
+                        enableVsync, enableDockedMode, true, false,
                         IntegrityCheckLevel.None, 0, 0, "UTC",
                         MemoryManagerMode.HostMapped,
                         true, AspectRatio.Fixed16x9, 1.0f, false, "",
@@ -678,6 +709,14 @@ namespace Ryujinx.Android
                         RStick = _rightStick
                     }
                 });
+            }
+
+            public void ApplySettings(float scale, bool vsync, bool docked)
+            {
+                GraphicsConfig.ResScale = scale;
+                _device.EnableDeviceVsync = vsync;
+                _renderer.Window.ChangeVSyncMode(vsync);
+                _device.System.ChangeDockedModeState(docked);
             }
 
             public void InstallFirmware(string path) => _content.InstallFirmware(path);
