@@ -137,7 +137,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sudo apt-get install -y openjdk-17-jdk
+          java -version
           mkdir -p "$RYUJINX_SOURCE_ROOT/Ryujinx.Android/native/arm64-v8a"
           cp -R ryu/android/app/. "$RYUJINX_SOURCE_ROOT/Ryujinx.Android/"
           cp build/android-native/libryujinx_android.so "$RYUJINX_SOURCE_ROOT/Ryujinx.Android/native/arm64-v8a/"
@@ -154,14 +154,16 @@ jobs:
             -p:AndroidSigningKeyAlias=ryujinx \
             -p:AndroidSigningKeyPass=android \
             -p:AndroidSigningStorePass=android \
-            -p:AndroidSupportedAbis=arm64-v8a
           APK="$(find "$GITHUB_WORKSPACE/artifacts" -maxdepth 1 -type f -name '*Signed.apk' -print -quit)"
           if [ -z "$APK" ]; then
             APK="$(find "$GITHUB_WORKSPACE/artifacts" -maxdepth 1 -type f -name '*.apk' -print -quit)"
           fi
           test -n "$APK"
           cp "$APK" "$GITHUB_WORKSPACE/artifacts/Ryujinx-Android.apk"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$GITHUB_WORKSPACE/artifacts/Ryujinx-Android.apk" | head -20
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          test -x "$AAPT"
+          "$AAPT" dump badging "$GITHUB_WORKSPACE/artifacts/Ryujinx-Android.apk" | head -20
+          unzip -l "$GITHUB_WORKSPACE/artifacts/Ryujinx-Android.apk" | grep 'lib/arm64-v8a/libryujinx_android.so'
 
       - name: Upload installable Android APK
         uses: actions/upload-artifact@v4
