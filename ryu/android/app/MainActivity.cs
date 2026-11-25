@@ -637,8 +637,8 @@ namespace Ryujinx.Android
             _surfaceReady = false;
             _surfaceHolder = null;
             Interlocked.Increment(ref _surfaceGeneration);
-            long pendingWindow = Interlocked.Exchange(ref _pendingNativeWindow, 0);
-            if (pendingWindow != 0) NativeReleaseWindow(pendingWindow);
+            // InitializeHostAsync owns the pending native-window reference and
+            // releases it after noticing this generation was invalidated.
             AndroidHost host = _host;
             _host = null;
             if (host != null) _ = Task.Run(host.Stop);
@@ -706,15 +706,8 @@ namespace Ryujinx.Android
             _surfaceReady = false;
             Interlocked.Increment(ref _surfaceGeneration);
 
-            // A Surface may have been created without the user starting the engine.
-            // Release its retained ANativeWindow reference here if SurfaceDestroyed
-            // has not already done so.
-            long pendingWindow = Interlocked.Exchange(ref _pendingNativeWindow, 0);
-            if (pendingWindow != 0)
-            {
-                try { NativeReleaseWindow(pendingWindow); } catch { }
-            }
-
+            // The in-flight initialization task owns its ANativeWindow reference.
+            // It will release it when it observes the invalidated surface generation.
             AndroidHost host = _host;
             _host = null;
             if (host != null) _ = Task.Run(host.Stop);
