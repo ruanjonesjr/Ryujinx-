@@ -6,8 +6,8 @@
     <AndroidManifest>AndroidManifest.xml</AndroidManifest>
     <ApplicationId>com.ryujinx.android</ApplicationId>
     <ApplicationTitle>Ryujinx Android</ApplicationTitle>
-    <ApplicationVersion>1</ApplicationVersion>
-    <ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
+    <ApplicationVersion>2</ApplicationVersion>
+    <ApplicationDisplayVersion>0.2.0</ApplicationDisplayVersion>
     <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
     <AndroidMinSdkVersion>26</AndroidMinSdkVersion>
     <RuntimeIdentifiers>android-arm64</RuntimeIdentifiers>
