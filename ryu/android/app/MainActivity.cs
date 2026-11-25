@@ -597,6 +597,20 @@ namespace Ryujinx.Android
             base.OnDestroy();
         }
 
+        [DllImport("shaderc_shared", EntryPoint = "shaderc_compiler_initialize", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr ShadercCompilerInitialize();
+
+        [DllImport("shaderc_shared", EntryPoint = "shaderc_compiler_release", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void ShadercCompilerRelease(IntPtr compiler);
+
+        private static void VerifyShaderCompiler()
+        {
+            IntPtr compiler = ShadercCompilerInitialize();
+            if (compiler == IntPtr.Zero)
+                throw new InvalidOperationException("O compilador Vulkan shaderc não conseguiu inicializar.");
+            ShadercCompilerRelease(compiler);
+        }
+
         [DllImport("ryujinx_android", EntryPoint = "Java_com_ryujinx_android_NativeWindowBridge_fromSurface")]
         private static extern long NativeFromSurface(IntPtr env, IntPtr clazz, IntPtr surface);
 
@@ -648,6 +662,7 @@ namespace Ryujinx.Android
                     var accounts = new AccountManager(_libHac.RyujinxClient);
                     var persistence = new UserChannelPersistence();
 
+                    VerifyShaderCompiler();
                     renderer = new VulkanRenderer(Vk.GetApi(), new IntPtr(nativeWindow), "");
                     var configuration = new HLEConfiguration(
                         _vfs, _libHac, _content, accounts, persistence, renderer,
