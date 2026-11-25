@@ -369,35 +369,57 @@ namespace Ryujinx.Android
             {
                 _activity = activity;
                 _nativeWindow = nativeWindow;
-                string data = Path.Combine(activity.FilesDir.AbsolutePath, "Ryujinx");
-                Directory.CreateDirectory(data);
-                AppDataManager.Initialize(data);
 
-                _vfs = VirtualFileSystem.CreateInstance();
-                _libHac = new LibHacHorizonManager();
-                _libHac.InitializeFsServer(_vfs);
-                _libHac.InitializeArpServer();
-                _libHac.InitializeBcatServer();
-                _libHac.InitializeSystemClients();
-                _content = new ContentManager(_vfs);
-                var accounts = new AccountManager(_libHac.RyujinxClient);
-                var persistence = new UserChannelPersistence();
+                VulkanRenderer renderer = null;
+                RyujinxSwitch device = null;
+                try
+                {
+                    string data = Path.Combine(activity.FilesDir.AbsolutePath, "Ryujinx");
+                    Directory.CreateDirectory(data);
+                    AppDataManager.Initialize(data);
 
-                _renderer = new VulkanRenderer(Vk.GetApi(), new IntPtr(nativeWindow), "");
-                var configuration = new HLEConfiguration(
-                    _vfs, _libHac, _content, accounts, persistence, _renderer,
-                    new AndroidAudioHardwareDeviceDriver(),
-                    MemoryConfiguration.MemoryConfiguration4GiB,
-                    new AndroidHostUIHandler(activity),
-                    SystemLanguage.BrazilianPortuguese,
-                    RegionCode.USA,
-                    true, false, true, false,
-                    IntegrityCheckLevel.None, 0, 0, "UTC",
-                    MemoryManagerMode.HostMapped,
-                    true, AspectRatio.Fixed16x9, 1.0f, false, "",
-                    Ryujinx.Common.Configuration.Multiplayer.MultiplayerMode.Disabled);
-                _device = new RyujinxSwitch(configuration);
-                _renderer.Initialize(GraphicsDebugLevel.None);
+                    _vfs = VirtualFileSystem.CreateInstance();
+                    _libHac = new LibHacHorizonManager();
+                    _libHac.InitializeFsServer(_vfs);
+                    _libHac.InitializeArpServer();
+                    _libHac.InitializeBcatServer();
+                    _libHac.InitializeSystemClients();
+                    _content = new ContentManager(_vfs);
+                    var accounts = new AccountManager(_libHac.RyujinxClient);
+                    var persistence = new UserChannelPersistence();
+
+                    renderer = new VulkanRenderer(Vk.GetApi(), new IntPtr(nativeWindow), "");
+                    var configuration = new HLEConfiguration(
+                        _vfs, _libHac, _content, accounts, persistence, renderer,
+                        new AndroidAudioHardwareDeviceDriver(),
+                        MemoryConfiguration.MemoryConfiguration4GiB,
+                        new AndroidHostUIHandler(activity),
+                        SystemLanguage.BrazilianPortuguese,
+                        RegionCode.USA,
+                        true, false, true, false,
+                        IntegrityCheckLevel.None, 0, 0, "UTC",
+                        MemoryManagerMode.HostMapped,
+                        true, AspectRatio.Fixed16x9, 1.0f, false, "",
+                        Ryujinx.Common.Configuration.Multiplayer.MultiplayerMode.Disabled);
+                    device = new RyujinxSwitch(configuration);
+                    renderer.Initialize(GraphicsDebugLevel.None);
+
+                    _renderer = renderer;
+                    _device = device;
+                }
+                catch
+                {
+                    if (device != null)
+                    {
+                        try { device.DisposeGpu(); } catch { }
+                        try { device.Dispose(); } catch { }
+                    }
+                    else
+                    {
+                        try { renderer?.Dispose(); } catch { }
+                    }
+                    throw;
+                }
             }
 
             public void ReloadKeys() => _vfs.ReloadKeySet();
