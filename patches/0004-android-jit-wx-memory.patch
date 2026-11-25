@@ -1,6 +1,6 @@
 --- a/src/ARMeilleure/Translation/Cache/JitCache.cs
 +++ b/src/ARMeilleure/Translation/Cache/JitCache.cs
-@@ -132,7 +132,14 @@
+@@ -133,4 +133,13 @@
              int regionEnd = (endOffs + _pageMask) & ~_pageMask;
  
 -            _jitRegion.Block.MapAsRwx((ulong)regionStart, (ulong)(regionEnd - regionStart));
