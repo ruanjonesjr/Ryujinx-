@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-android</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Ryujinx.Android</RootNamespace>
+    <ApplicationId>com.ryujinx.android</ApplicationId>
+    <ApplicationTitle>Ryujinx Android</ApplicationTitle>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
+    <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
+    <AndroidMinSdkVersion>26</AndroidMinSdkVersion>
+    <AndroidSupportedAbis>arm64-v8a</AndroidSupportedAbis>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Ryujinx.HLE/Ryujinx.HLE.csproj" />
+    <ProjectReference Include="../Ryujinx.Graphics.Vulkan/Ryujinx.Graphics.Vulkan.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <AndroidNativeLibrary Include="native/arm64-v8a/libryujinx_android.so" />
+  </ItemGroup>
+</Project>
