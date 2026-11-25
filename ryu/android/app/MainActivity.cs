@@ -55,8 +55,20 @@ namespace Ryujinx.Android
 
         protected override void OnCreate(Bundle savedInstanceState)
         {
-            base.OnCreate(savedInstanceState);
-            Window.AddFlags(WindowManagerFlags.KeepScreenOn);
+            try
+            {
+                base.OnCreate(savedInstanceState);
+                AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+                {
+                    try
+                    {
+                        string logPath = Path.Combine(FilesDir.AbsolutePath, "ryujinx-startup-crash.txt");
+                        File.AppendAllText(logPath, DateTime.UtcNow.ToString("O") + Environment.NewLine +
+                            (args.ExceptionObject?.ToString() ?? "Falha não gerenciada") + Environment.NewLine);
+                    }
+                    catch { }
+                };
+                Window.AddFlags(WindowManagerFlags.KeepScreenOn);
 
             var root = new FrameLayout(this);
 
@@ -168,7 +180,28 @@ namespace Ryujinx.Android
                 GetSharedPreferences("ryujinx_android", FileCreationMode.Private)
                     .Edit().Remove("last_game").Apply();
             }
-            _status.Text = "Aguardando superfície Vulkan...";
+                _status.Text = "Aguardando superfície Vulkan...";
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    string logPath = Path.Combine(FilesDir.AbsolutePath, "ryujinx-startup-crash.txt");
+                    File.WriteAllText(logPath, DateTime.UtcNow.ToString("O") + Environment.NewLine + ex);
+                }
+                catch { }
+
+                var errorView = new TextView(this)
+                {
+                    Text = "RYUJINX — ERRO AO INICIAR\\n\\n" + ex.GetType().FullName + "\\n" + ex.Message +
+                           "\\n\\nRelatório salvo em: Android/data/com.ryujinx.android/files/ryujinx-startup-crash.txt",
+                    TextSize = 14,
+                    Gravity = GravityFlags.Center,
+                };
+                errorView.SetTextColor(global::Android.Graphics.Color.White);
+                errorView.SetBackgroundColor(global::Android.Graphics.Color.Rgb(35, 20, 20));
+                SetContentView(errorView);
+            }
         }
 
         private void ShowPerformanceSettings()
