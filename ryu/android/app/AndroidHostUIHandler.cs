@@ -1,5 +1,5 @@
-using Android.App;
-using Android.Widget;
+using global::Android.App;
+using global::Android.Widget;
 using Ryujinx.HLE;
 using Ryujinx.HLE.HOS.Applets;
 using Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.ApplicationProxy.Types;
