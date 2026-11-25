@@ -38,7 +38,7 @@ namespace Ryujinx.Android
             if (sampleFormat != SampleFormat.PcmInt16) throw new ArgumentException(nameof(sampleFormat));
             if (channelCount != 1 && channelCount != 2) throw new ArgumentException(nameof(channelCount));
 
-            var session = new AndroidAudioHardwareDeviceSession(this, memoryManager, sampleRate == 0 ? Constants.TargetSampleRate : sampleRate, channelCount);
+            var session = new AndroidAudioHardwareDeviceSession(this, memoryManager, sampleRate == 0 ? Ryujinx.Audio.Constants.TargetSampleRate : sampleRate, channelCount);
             session.SetVolume(_volume);
             _sessions.TryAdd(session, 0);
             return session;
