@@ -46,6 +46,7 @@ namespace Ryujinx.Android
         private volatile AndroidHost _host;
         private string _pendingAction;
         private volatile bool _surfaceReady;
+        private ISurfaceHolder _surfaceHolder;
         private int _surfaceGeneration;
         private int _surfaceWidth;
         private int _surfaceHeight;
@@ -522,17 +523,13 @@ namespace Ryujinx.Android
 
         public void SurfaceCreated(ISurfaceHolder holder)
         {
-            try
-            {
-                _surfaceReady = true;
-                Interlocked.Increment(ref _surfaceGeneration);
-                long nativeWindow = NativeFromSurface(JNIEnv.Handle, IntPtr.Zero, holder.Surface.Handle);
-                if (nativeWindow == 0) throw new InvalidOperationException("ANativeWindow não foi criado.");
-                long previous = Interlocked.Exchange(ref _pendingNativeWindow, nativeWindow);
-                if (previous != 0) NativeReleaseWindow(previous);
-                _status.Text = "Tela pronta. Toque em INICIAR MOTOR para testar Vulkan.";
-            }
-            catch (Exception ex) { ReportVulkanError(ex); }
+            // Do not call into the native/JNI bridge from SurfaceCreated.
+            // Some Android runtimes invalidate the Surface peer during callback
+            // setup; defer ANativeWindow acquisition until the user starts Vulkan.
+            _surfaceHolder = holder;
+            _surfaceReady = true;
+            Interlocked.Increment(ref _surfaceGeneration);
+            _status.Text = "Tela pronta. O aplicativo está aberto; toque em INICIAR MOTOR para iniciar Vulkan.";
         }
 
         private void StartVulkanHost()
@@ -543,10 +540,23 @@ namespace Ryujinx.Android
                 return;
             }
 
-            long nativeWindow = Interlocked.Exchange(ref _pendingNativeWindow, 0);
-            if (nativeWindow == 0)
+            ISurfaceHolder holder = _surfaceHolder;
+            if (!_surfaceReady || holder == null)
             {
                 _status.Text = "Aguardando a superfície da tela. Tente novamente em instantes.";
+                return;
+            }
+
+            long nativeWindow;
+            try
+            {
+                nativeWindow = NativeFromSurface(JNIEnv.Handle, IntPtr.Zero, holder.Surface.Handle);
+                if (nativeWindow == 0)
+                    throw new InvalidOperationException("ANativeWindow não foi criado a partir da Surface Android.");
+            }
+            catch (Exception ex)
+            {
+                ReportVulkanError(ex);
                 return;
             }
 
@@ -601,6 +611,7 @@ namespace Ryujinx.Android
         public void SurfaceDestroyed(ISurfaceHolder holder)
         {
             _surfaceReady = false;
+            _surfaceHolder = null;
             Interlocked.Increment(ref _surfaceGeneration);
             long pendingWindow = Interlocked.Exchange(ref _pendingNativeWindow, 0);
             if (pendingWindow != 0) NativeReleaseWindow(pendingWindow);
