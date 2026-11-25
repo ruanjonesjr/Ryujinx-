@@ -1,0 +1,17 @@
+--- a/src/ARMeilleure/Translation/Cache/JitCache.cs
++++ b/src/ARMeilleure/Translation/Cache/JitCache.cs
+@@ -132,7 +132,14 @@
+             int regionEnd = (endOffs + _pageMask) & ~_pageMask;
+ 
+-            _jitRegion.Block.MapAsRwx((ulong)regionStart, (ulong)(regionEnd - regionStart));
++            // Android enforces W^X for application processes. Emit code into
++            // writable pages, then switch the completed range to RX.
++            if (OperatingSystem.IsAndroid())
++            {
++                _jitRegion.Block.MapAsRw((ulong)regionStart, (ulong)(regionEnd - regionStart));
++            }
++            else
++            {
++                _jitRegion.Block.MapAsRwx((ulong)regionStart, (ulong)(regionEnd - regionStart));
++            }
+         }
