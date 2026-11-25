@@ -589,6 +589,7 @@ namespace Ryujinx.Android
                 host = await Task.Run(() => new AndroidHost(this, nativeWindow));
                 if (!_surfaceReady || generation != Volatile.Read(ref _surfaceGeneration))
                 {
+                    Interlocked.CompareExchange(ref _pendingNativeWindow, 0, nativeWindow);
                     await Task.Run(host.Stop);
                     return;
                 }
