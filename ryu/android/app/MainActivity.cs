@@ -666,6 +666,20 @@ namespace Ryujinx.Android
 
         protected override void OnDestroy()
         {
+            // Invalidate any Vulkan initialization still running on a worker thread.
+            // InitializeHostAsync will dispose the host if this generation is stale.
+            _surfaceReady = false;
+            Interlocked.Increment(ref _surfaceGeneration);
+
+            // A Surface may have been created without the user starting the engine.
+            // Release its retained ANativeWindow reference here if SurfaceDestroyed
+            // has not already done so.
+            long pendingWindow = Interlocked.Exchange(ref _pendingNativeWindow, 0);
+            if (pendingWindow != 0)
+            {
+                try { NativeReleaseWindow(pendingWindow); } catch { }
+            }
+
             AndroidHost host = _host;
             _host = null;
             if (host != null) _ = Task.Run(host.Stop);
