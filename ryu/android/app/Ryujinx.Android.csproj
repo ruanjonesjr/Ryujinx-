@@ -20,5 +20,6 @@
   </ItemGroup>
   <ItemGroup>
     <AndroidNativeLibrary Include="native/arm64-v8a/libryujinx_android.so" Abi="arm64-v8a" />
+    <AndroidNativeLibrary Include="native/arm64-v8a/libshaderc_shared.so" Abi="arm64-v8a" />
   </ItemGroup>
 </Project>
