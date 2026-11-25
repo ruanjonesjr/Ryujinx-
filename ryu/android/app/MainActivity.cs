@@ -41,6 +41,7 @@ namespace Ryujinx.Android
         private TextView _status;
         private ProgressBar _importProgress;
         private LinearLayout _bottomPanel;
+        private LinearLayout _topPanel;
         private volatile bool _isImporting;
         private volatile AndroidHost _host;
         private string _pendingAction;
@@ -60,8 +61,9 @@ namespace Ryujinx.Android
             _surfaceView.Holder.AddCallback(this);
             root.AddView(_surfaceView, new FrameLayout.LayoutParams(-1, -1));
 
-            var topPanel = new LinearLayout(this) { Orientation = Orientation.Vertical };
-            topPanel.SetBackgroundColor(global::Android.Graphics.Color.Argb(175, 20, 22, 26));
+            _topPanel = new LinearLayout(this) { Orientation = Orientation.Vertical };
+            _topPanel.SetBackgroundColor(global::Android.Graphics.Color.Rgb(25, 29, 36));
+            _topPanel.SetPadding(20, 18, 20, 18);
             var controls = new LinearLayout(this) { Orientation = Orientation.Horizontal };
             var gameButton = new Button(this) { Text = "ABRIR JOGO" };
             var keysButton = new Button(this) { Text = "PROD.KEYS" };
@@ -89,16 +91,27 @@ namespace Ryujinx.Android
             controls.AddView(keysButton, new LinearLayout.LayoutParams(0, 42, 1));
             controls.AddView(firmwareButton, new LinearLayout.LayoutParams(0, 42, 1));
             controls.AddView(settingsButton, new LinearLayout.LayoutParams(0, 42, 1));
-            topPanel.AddView(controls);
-            topPanel.AddView(_status, new LinearLayout.LayoutParams(-1, 24));
+            var brand = new TextView(this) { Text = "RYUJINX", TextSize = 26, Gravity = GravityFlags.Center };
+            brand.SetTextColor(global::Android.Graphics.Color.White);
+            brand.SetTypeface(null, global::Android.Graphics.TypefaceStyle.Bold);
+            var subtitle = new TextView(this) { Text = "EMULADOR DE CONSOLE • ANDROID", TextSize = 10, Gravity = GravityFlags.Center };
+            subtitle.SetTextColor(global::Android.Graphics.Color.Rgb(170, 180, 195));
+            _topPanel.AddView(brand, new LinearLayout.LayoutParams(-1, 42));
+            _topPanel.AddView(subtitle, new LinearLayout.LayoutParams(-1, 24));
+            var menuSpacer = new View(this);
+            _topPanel.AddView(menuSpacer, new LinearLayout.LayoutParams(1, 12));
+            _topPanel.AddView(controls);
+            _topPanel.AddView(_status, new LinearLayout.LayoutParams(-1, 34));
             _importProgress = new ProgressBar(this, null, global::Android.Resource.Attribute.ProgressBarStyleHorizontal)
             {
                 Max = 100,
                 Progress = 0,
                 Visibility = global::Android.Views.ViewStates.Gone
             };
-            topPanel.AddView(_importProgress, new LinearLayout.LayoutParams(-1, 5));
-            root.AddView(topPanel, new FrameLayout.LayoutParams(-1, -2, GravityFlags.Top));
+            _topPanel.AddView(_importProgress, new LinearLayout.LayoutParams(-1, 5));
+            var topParams = new FrameLayout.LayoutParams(-1, -2, GravityFlags.Center);
+            topParams.SetMargins(20, 20, 20, 20);
+            root.AddView(_topPanel, topParams);
 
             _bottomPanel = new LinearLayout(this) { Orientation = Orientation.Vertical };
             _bottomPanel.SetBackgroundColor(global::Android.Graphics.Color.Argb(150, 20, 22, 26));
@@ -585,6 +598,7 @@ namespace Ryujinx.Android
                 _status.Text = loaded ? "Jogo carregado." : "O Ryujinx não reconheceu o jogo. Confira keys e firmware.";
                 if (loaded)
                 {
+                    _topPanel.Visibility = global::Android.Views.ViewStates.Gone;
                     _bottomPanel.Visibility = global::Android.Views.ViewStates.Visible;
                     host.StartRenderLoop();
                 }
