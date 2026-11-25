@@ -53,7 +53,8 @@ namespace Ryujinx.Android
                 builder.SetNegativeButton("Cancelar", (sender, eventArgs) => completed.Set());
 
                 var dialog = builder.Create();
-                dialog.SetCancelable(false);
+                dialog.CancelEvent += (sender, eventArgs) => completed.Set();
+                dialog.SetCancelable(true);
                 dialog.Show();
             });
 
@@ -70,7 +71,8 @@ namespace Ryujinx.Android
             return true;
         }
 
-        public bool DisplayMessageDialog(ControllerAppletUIArgs args) => true;
+        public bool DisplayMessageDialog(ControllerAppletUIArgs args)
+            => DisplayMessageDialog("Controles", "Use os botões e analógicos na tela para controlar o jogo.");
 
         public void ExecuteProgram(RyujinxSwitch device, ProgramSpecifyKind kind, ulong value) { }
 
