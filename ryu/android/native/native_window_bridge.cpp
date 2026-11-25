@@ -14,11 +14,15 @@ Java_com_ryujinx_android_NativeWindowBridge_fromSurface(
     return static_cast<jlong>(reinterpret_cast<intptr_t>(window));
 }
 
-extern "C" JNIEXPORT void JNICALL
-Java_com_ryujinx_android_NativeWindowBridge_release(
-    JNIEnv*, jclass, jlong handle) {
+extern "C" void ryujinx_android_release_window(jlong handle) {
     auto* window = reinterpret_cast<ANativeWindow*>(static_cast<intptr_t>(handle));
     if (window != nullptr) {
         ANativeWindow_release(window);
     }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_ryujinx_android_NativeWindowBridge_release(
+    JNIEnv*, jclass, jlong handle) {
+    ryujinx_android_release_window(handle);
 }
