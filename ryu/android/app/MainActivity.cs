@@ -644,7 +644,7 @@ namespace Ryujinx.Android
                 item.SetTextSize(global::Android.Util.ComplexUnitType.Sp, 12f);
                 item.SetSingleLine(true);
                 item.Click += async (_, _) => await StartGame(path);
-                item.LongClick += (_, _) =>
+                item.LongClick += (_, e) =>
                 {
                     new AlertDialog.Builder(this)
                         .SetTitle("Remover jogo")
@@ -671,7 +671,7 @@ namespace Ryujinx.Android
                             }
                         })
                         .Show();
-                    return true;
+                    e.Handled = true;
                 };
                 _gameList.AddView(item, new LinearLayout.LayoutParams(-1, 48));
             }
