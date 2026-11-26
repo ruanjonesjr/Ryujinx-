@@ -46,6 +46,7 @@ namespace Ryujinx.Android
         private string _previousVulkanStage;
         private LinearLayout _bottomPanel;
         private LinearLayout _topPanel;
+        private LinearLayout _gameList;
         private volatile bool _isImporting;
         private volatile AndroidHost _host;
         private string _pendingAction;
@@ -129,6 +130,15 @@ namespace Ryujinx.Android
                 Visibility = global::Android.Views.ViewStates.Gone
             };
             _topPanel.AddView(_importProgress, new LinearLayout.LayoutParams(-1, 5));
+
+            var libraryTitle = new TextView(this) { Text = "BIBLIOTECA DE JOGOS", TextSize = 14, Gravity = GravityFlags.CenterVertical };
+            libraryTitle.SetTextColor(global::Android.Graphics.Color.White);
+            libraryTitle.SetTypeface(null, global::Android.Graphics.TypefaceStyle.Bold);
+            _topPanel.AddView(libraryTitle, new LinearLayout.LayoutParams(-1, 38));
+            var libraryScroll = new ScrollView(this);
+            _gameList = new LinearLayout(this) { Orientation = Orientation.Vertical };
+            libraryScroll.AddView(_gameList, new ScrollView.LayoutParams(-1, -2));
+            _topPanel.AddView(libraryScroll, new LinearLayout.LayoutParams(-1, 190));
             var topParams = new FrameLayout.LayoutParams(-1, -2, GravityFlags.Top);
             topParams.SetMargins(14, 14, 14, 0);
             root.AddView(_topPanel, topParams);
@@ -182,6 +192,7 @@ namespace Ryujinx.Android
                 GetSharedPreferences("ryujinx_android", FileCreationMode.Private)
                     .Edit().Remove("last_game").Apply();
             }
+            RefreshGameLibrary();
                 string startupLog = Path.Combine(FilesDir.AbsolutePath, "Ryujinx", "android-vulkan-startup.log");
                 if (File.Exists(startupLog))
                 {
@@ -497,7 +508,7 @@ namespace Ryujinx.Android
                 Directory.CreateDirectory(targetDir);
 
                 string targetName = action == "game"
-                    ? Guid.NewGuid().ToString("N") + extension
+                    ? GetUniqueGameFileName(targetDir, safeName)
                     : safeName;
                 string target = Path.Combine(targetDir, targetName);
 
@@ -534,6 +545,7 @@ namespace Ryujinx.Android
                     }
                     GetSharedPreferences("ryujinx_android", FileCreationMode.Private)
                         .Edit().PutString("last_game", target).Apply();
+                    RunOnUiThread(RefreshGameLibrary);
                 }
 
                 if (action == "keys")
@@ -580,6 +592,54 @@ namespace Ryujinx.Android
             {
                 _isImporting = false;
                 RunOnUiThread(() => _importProgress.Visibility = global::Android.Views.ViewStates.Gone);
+            }
+        }
+
+        private static string GetUniqueGameFileName(string directory, string fileName)
+        {
+            string candidate = fileName;
+            string name = Path.GetFileNameWithoutExtension(fileName);
+            string extension = Path.GetExtension(fileName);
+            int suffix = 2;
+            while (File.Exists(Path.Combine(directory, candidate)))
+            {
+                candidate = name + " (" + suffix++ + ")" + extension;
+            }
+            return candidate;
+        }
+
+        private void RefreshGameLibrary()
+        {
+            if (_gameList == null) return;
+            _gameList.RemoveAllViews();
+            string directory = Path.Combine(FilesDir.AbsolutePath, "Ryujinx", "games");
+            Directory.CreateDirectory(directory);
+            string[] supported = { ".xci", ".nsp", ".pfs0", ".nca", ".nro" };
+            var games = Directory.GetFiles(directory)
+                .Where(path => Array.Exists(supported, ext => string.Equals(Path.GetExtension(path), ext, StringComparison.OrdinalIgnoreCase)))
+                .OrderBy(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            if (games.Length == 0)
+            {
+                var empty = new TextView(this) { Text = "Nenhum jogo importado. Toque em ABRIR JOGO para adicionar arquivos XCI, NSP, NCA ou NRO.", TextSize = 12, Gravity = GravityFlags.CenterVertical };
+                empty.SetTextColor(global::Android.Graphics.Color.Rgb(170, 180, 195));
+                empty.SetPadding(8, 12, 8, 12);
+                _gameList.AddView(empty, new LinearLayout.LayoutParams(-1, 64));
+                return;
+            }
+
+            foreach (string path in games)
+            {
+                var item = new Button(this)
+                {
+                    Text = Path.GetFileName(path) + "  •  " + new FileInfo(path).Length / (1024d * 1024d).ToString("0.0") + " MB",
+                    Gravity = GravityFlags.CenterVertical
+                };
+                item.SetTextSize(global::Android.Util.ComplexUnitType.Sp, 12f);
+                item.SetSingleLine(true);
+                item.Click += async (_, _) => await StartGame(path);
+                _gameList.AddView(item, new LinearLayout.LayoutParams(-1, 48));
             }
         }
 
