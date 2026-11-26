@@ -644,6 +644,35 @@ namespace Ryujinx.Android
                 item.SetTextSize(global::Android.Util.ComplexUnitType.Sp, 12f);
                 item.SetSingleLine(true);
                 item.Click += async (_, _) => await StartGame(path);
+                item.LongClick += (_, _) =>
+                {
+                    new AlertDialog.Builder(this)
+                        .SetTitle("Remover jogo")
+                        .SetMessage("Excluir " + Path.GetFileName(path) + " do armazenamento do Ryujinx? Esta ação não pode ser desfeita.")
+                        .SetNegativeButton("Cancelar", (sender, args) => { })
+                        .SetPositiveButton("Excluir", (sender, args) =>
+                        {
+                            try
+                            {
+                                if (string.Equals(_pendingGame, path, StringComparison.Ordinal))
+                                    _pendingGame = null;
+                                string lastGame = GetSharedPreferences("ryujinx_android", FileCreationMode.Private)
+                                    .GetString("last_game", null);
+                                var editor = GetSharedPreferences("ryujinx_android", FileCreationMode.Private).Edit();
+                                if (string.Equals(lastGame, path, StringComparison.Ordinal)) editor.Remove("last_game");
+                                editor.Apply();
+                                File.Delete(path);
+                                RefreshGameLibrary();
+                                _status.Text = "Jogo removido da biblioteca.";
+                            }
+                            catch (Exception ex)
+                            {
+                                _status.Text = "Não foi possível excluir: " + ex.Message;
+                            }
+                        })
+                        .Show();
+                    return true;
+                };
                 _gameList.AddView(item, new LinearLayout.LayoutParams(-1, 48));
             }
         }
