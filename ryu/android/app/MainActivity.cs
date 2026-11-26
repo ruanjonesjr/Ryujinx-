@@ -184,7 +184,8 @@ namespace Ryujinx.Android
                 string startupLog = Path.Combine(FilesDir.AbsolutePath, "Ryujinx", "android-vulkan-startup.log");
                 if (File.Exists(startupLog))
                 {
-                    string previousStage = File.ReadAllLines(startupLog).LastOrDefault();
+                    string[] previousLines = File.ReadAllLines(startupLog);
+                    string previousStage = previousLines.Length > 0 ? previousLines[previousLines.Length - 1] : null;
                     if (!string.IsNullOrWhiteSpace(previousStage))
                         _status.Text = "Última tentativa Vulkan: " + previousStage;
                     else
