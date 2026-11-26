@@ -181,7 +181,19 @@ namespace Ryujinx.Android
                 GetSharedPreferences("ryujinx_android", FileCreationMode.Private)
                     .Edit().Remove("last_game").Apply();
             }
-                _status.Text = "Biblioteca pronta";
+                string startupLog = Path.Combine(FilesDir.AbsolutePath, "Ryujinx", "android-vulkan-startup.log");
+                if (File.Exists(startupLog))
+                {
+                    string previousStage = File.ReadAllLines(startupLog).LastOrDefault();
+                    if (!string.IsNullOrWhiteSpace(previousStage))
+                        _status.Text = "Última tentativa Vulkan: " + previousStage;
+                    else
+                        _status.Text = "Biblioteca pronta";
+                }
+                else
+                {
+                    _status.Text = "Biblioteca pronta";
+                }
             }
             catch (Exception ex)
             {
@@ -574,6 +586,18 @@ namespace Ryujinx.Android
             return index >= 0 ? cursor.GetString(index) : null;
         }
 
+        private void WriteVulkanStage(string stage)
+        {
+            try
+            {
+                string directory = Path.Combine(FilesDir.AbsolutePath, "Ryujinx");
+                Directory.CreateDirectory(directory);
+                string path = Path.Combine(directory, "android-vulkan-startup.log");
+                File.AppendAllText(path, DateTime.UtcNow.ToString("O") + " | " + stage + System.Environment.NewLine);
+            }
+            catch { }
+        }
+
         public void SurfaceCreated(ISurfaceHolder holder)
         {
             // Defer JNI/ANativeWindow access until the Surface callback has returned.
@@ -613,7 +637,9 @@ namespace Ryujinx.Android
             long nativeWindow = 0;
             try
             {
+                WriteVulkanStage("JNI: convertendo Surface em ANativeWindow");
                 nativeWindow = NativeFromSurface(JNIEnv.Handle, IntPtr.Zero, holder.Surface.Handle);
+                WriteVulkanStage(nativeWindow == 0 ? "JNI: ANativeWindow nulo" : "JNI: ANativeWindow criado");
                 if (nativeWindow == 0)
                     throw new InvalidOperationException("ANativeWindow não foi criado a partir da Surface Android.");
 
@@ -640,7 +666,9 @@ namespace Ryujinx.Android
             AndroidHost host = null;
             try
             {
+                WriteVulkanStage("HOST: iniciando construtor AndroidHost");
                 host = await Task.Run(() => new AndroidHost(this, nativeWindow));
+                WriteVulkanStage("HOST: construtor concluído");
                 if (!_surfaceReady || generation != Volatile.Read(ref _surfaceGeneration))
                 {
                     Interlocked.CompareExchange(ref _pendingNativeWindow, 0, nativeWindow);
@@ -664,6 +692,7 @@ namespace Ryujinx.Android
             }
             catch (Exception ex)
             {
+                WriteVulkanStage("EXCEÇÃO GERENCIADA: " + ex.GetType().Name + " - " + ex.Message);
                 if (host != null)
                 {
                     // If the host was already published before a resize or
@@ -828,13 +857,19 @@ namespace Ryujinx.Android
                     var accounts = new AccountManager(_libHac.RyujinxClient);
                     var persistence = new UserChannelPersistence();
 
-                    renderer = new VulkanRenderer(Vk.GetApi(), new IntPtr(nativeWindow), "");
+                    activity.WriteVulkanStage("VULKAN: obtendo API Silk.NET");
+                    Vk vk = Vk.GetApi();
+                    activity.WriteVulkanStage("VULKAN: criando VulkanRenderer");
+                    renderer = new VulkanRenderer(vk, new IntPtr(nativeWindow), "");
+                    activity.WriteVulkanStage("VULKAN: chamando Initialize");
                     // Initialize the Vulkan renderer before constructing HLE.
                     // Ryujinx's GPU subsystem may query renderer capabilities during
                     // Switch construction, so initializing it afterwards can abort
                     // engine startup on Android.
                     renderer.Initialize(GraphicsDebugLevel.None);
+                    activity.WriteVulkanStage("VULKAN: Initialize concluído");
 
+                    activity.WriteVulkanStage("HLE: preparando configuração do Switch");
                     var configuration = new HLEConfiguration(
                         _vfs, _libHac, _content, accounts, persistence, renderer,
                         new AndroidAudioHardwareDeviceDriver(),
@@ -848,6 +883,7 @@ namespace Ryujinx.Android
                         true, AspectRatio.Fixed16x9, 1.0f, false, "",
                         Ryujinx.Common.Configuration.Multiplayer.MultiplayerMode.Disabled);
                     device = new RyujinxSwitch(configuration);
+                    activity.WriteVulkanStage("HLE: Switch criado");
 
                     _renderer = renderer;
                     _device = device;
