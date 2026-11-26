@@ -20,6 +20,7 @@ using LibHac.Tools.FsSystem;
 using Silk.NET.Vulkan;
 using System;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -137,7 +138,7 @@ namespace Ryujinx.Android
             _topPanel.AddView(libraryTitle, new LinearLayout.LayoutParams(-1, 38));
             var libraryScroll = new ScrollView(this);
             _gameList = new LinearLayout(this) { Orientation = Orientation.Vertical };
-            libraryScroll.AddView(_gameList, new ScrollView.LayoutParams(-1, -2));
+            libraryScroll.AddView(_gameList, new global::Android.Views.ViewGroup.LayoutParams(-1, -2));
             _topPanel.AddView(libraryScroll, new LinearLayout.LayoutParams(-1, 190));
             var topParams = new FrameLayout.LayoutParams(-1, -2, GravityFlags.Top);
             topParams.SetMargins(14, 14, 14, 0);
@@ -633,7 +634,7 @@ namespace Ryujinx.Android
             {
                 var item = new Button(this)
                 {
-                    Text = Path.GetFileName(path) + "  •  " + new FileInfo(path).Length / (1024d * 1024d).ToString("0.0") + " MB",
+                    Text = Path.GetFileName(path) + "  •  " + (new FileInfo(path).Length / (1024d * 1024d)).ToString("0.0") + " MB",
                     Gravity = GravityFlags.CenterVertical
                 };
                 item.SetTextSize(global::Android.Util.ComplexUnitType.Sp, 12f);
