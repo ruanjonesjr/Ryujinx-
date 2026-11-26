@@ -21,8 +21,8 @@ namespace Ryujinx.Android
             var root = new LinearLayout(this)
             {
                 Orientation = Orientation.Vertical,
-                Gravity = GravityFlags.Center
             };
+            root.SetGravity(GravityFlags.Center);
             root.SetPadding(32, 32, 32, 32);
             root.SetBackgroundColor(global::Android.Graphics.Color.Rgb(18, 22, 29));
 
