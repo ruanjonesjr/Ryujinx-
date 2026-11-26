@@ -34,7 +34,12 @@ namespace Ryujinx.Graphics.Vulkan
             var createInfo = new AndroidSurfaceCreateInfoKHR
             {
                 SType = StructureType.AndroidSurfaceCreateInfoKhr,
-                Window = (nint*)nativeWindow,
+                // VkAndroidSurfaceCreateInfoKHR.window is ANativeWindow*, but Silk.NET
+                // represents it as nint*. The field must point to a local nint containing
+                // the ANativeWindow address; casting the address itself to nint* makes
+                // Vulkan dereference ANativeWindow memory as though it were a pointer slot.
+                nint window = nativeWindow;
+                Window = &window,
             };
 
             androidSurface.CreateAndroidSurface(instance, &createInfo, null, out SurfaceKHR surface).ThrowOnError();
