@@ -39,7 +39,6 @@ namespace Ryujinx.Android
 
         private SurfaceView _surfaceView;
         private TextView _status;
-        private Button _engineToggleButton;
         private FrameLayout _rootLayout;
         private LinearLayout _settingsPage;
         private ProgressBar _importProgress;
@@ -252,10 +251,6 @@ namespace Ryujinx.Android
             dockedCheck.SetTextColor(global::Android.Graphics.Color.White);
             _settingsPage.AddView(vsyncCheck);
             _settingsPage.AddView(dockedCheck);
-
-            _engineToggleButton = new Button(this) { Text = _host == null ? "ATIVAR MOTOR" : "DESLIGAR MOTOR" };
-            _engineToggleButton.Click += (_, _) => ToggleVulkanHost();
-            _settingsPage.AddView(_engineToggleButton, new LinearLayout.LayoutParams(-1, 48));
 
             var apply = new Button(this) { Text = "SALVAR CONFIGURAÇÕES" };
             apply.Click += (_, _) =>
@@ -586,58 +581,10 @@ namespace Ryujinx.Android
             _surfaceReady = true;
             Interlocked.Increment(ref _surfaceGeneration);
             _status.Text = "Ryujinx";
-            // Only one automatic attempt per Activity instance. Surface recreation must
-            // never recursively trigger another Vulkan initialization.
+            // Start the renderer automatically when Android reports a valid surface.
+            // The initialization guard below prevents overlapping renderer instances.
             if (Interlocked.CompareExchange(ref _autoStartRequested, 1, 0) == 0)
-            {
-                var startupPrefs = GetSharedPreferences("ryujinx_android", FileCreationMode.Private);
-                // Persist the attempt before entering native Vulkan code. If a driver
-                // crash kills the process, the next launch stays in the UI instead of
-                // repeating the same fatal startup path indefinitely.
-                if (!startupPrefs.GetBoolean("vulkan_autostart_attempted", false))
-                {
-                    startupPrefs.Edit().PutBoolean("vulkan_autostart_attempted", true).Apply();
-                    _ = Task.Delay(350).ContinueWith(_ => RunOnUiThread(StartVulkanHost));
-                }
-                else
-                {
-                    _status.Text = "Motor aguardando ativação manual";
-                }
-            }
-        }
-
-        private void ToggleVulkanHost()
-        {
-            AndroidHost host = _host;
-            if (host == null)
-            {
-                StartVulkanHost();
-                return;
-            }
-
-            if (Interlocked.CompareExchange(ref _hostInitializationInProgress, 1, 0) != 0)
-            {
-                _status.Text = "Aguarde a operação atual do motor terminar.";
-                return;
-            }
-
-            _host = null;
-            _status.Text = "Motor desligado";
-            _engineToggleButton.Text = "AGUARDE...";
-            _ = Task.Run(() =>
-            {
-                try { host.Stop(); }
-                finally
-                {
-                    Interlocked.Exchange(ref _hostInitializationInProgress, 0);
-                    RunOnUiThread(() =>
-                    {
-                        if (!_surfaceReady) return;
-                        _engineToggleButton.Text = "ATIVAR MOTOR";
-                        _status.Text = "Motor Vulkan desligado.";
-                    });
-                }
-            });
+                _ = Task.Delay(350).ContinueWith(_ => RunOnUiThread(StartVulkanHost));
         }
 
         private void StartVulkanHost()
@@ -703,11 +650,8 @@ namespace Ryujinx.Android
 
                 _host = host;
                 Interlocked.CompareExchange(ref _pendingNativeWindow, 0, nativeWindow);
-                GetSharedPreferences("ryujinx_android", FileCreationMode.Private)
-                    .Edit().PutBoolean("vulkan_autostart_attempted", false).Apply();
                 host.Resize(_surfaceWidth, _surfaceHeight);
                 _status.Text = "Motor ativo";
-                RunOnUiThread(() => { if (_engineToggleButton != null) _engineToggleButton.Text = "DESLIGAR MOTOR"; });
 
                 string pendingFirmware = _pendingFirmware;
                 if (!string.IsNullOrEmpty(pendingFirmware) &&
@@ -801,7 +745,6 @@ namespace Ryujinx.Android
             catch { }
 
             _status.Text = "Vulkan indisponível neste momento";
-            if (_engineToggleButton != null) _engineToggleButton.Text = "TENTAR NOVAMENTE";
             _status.Click -= ShowVulkanErrorDetails;
             _status.Click += ShowVulkanErrorDetails;
             _lastVulkanError = details;
@@ -831,20 +774,6 @@ namespace Ryujinx.Android
             _host = null;
             if (host != null) _ = Task.Run(host.Stop);
             base.OnDestroy();
-        }
-
-        [DllImport("shaderc_shared", EntryPoint = "shaderc_compiler_initialize", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr ShadercCompilerInitialize();
-
-        [DllImport("shaderc_shared", EntryPoint = "shaderc_compiler_release", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void ShadercCompilerRelease(IntPtr compiler);
-
-        private static void VerifyShaderCompiler()
-        {
-            IntPtr compiler = ShadercCompilerInitialize();
-            if (compiler == IntPtr.Zero)
-                throw new InvalidOperationException("O compilador Vulkan shaderc não conseguiu inicializar.");
-            ShadercCompilerRelease(compiler);
         }
 
         [DllImport("ryujinx_android", EntryPoint = "Java_com_ryujinx_android_NativeWindowBridge_fromSurface")]
@@ -899,7 +828,6 @@ namespace Ryujinx.Android
                     var accounts = new AccountManager(_libHac.RyujinxClient);
                     var persistence = new UserChannelPersistence();
 
-                    VerifyShaderCompiler();
                     renderer = new VulkanRenderer(Vk.GetApi(), new IntPtr(nativeWindow), "");
                     // Initialize the Vulkan renderer before constructing HLE.
                     // Ryujinx's GPU subsystem may query renderer capabilities during
