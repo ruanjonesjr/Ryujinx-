@@ -31,14 +31,13 @@ namespace Ryujinx.Graphics.Vulkan
                 throw new VulkanException("VK_KHR_android_surface is not available.");
             }
 
-            // Silk.NET models ANativeWindow* as nint*. Pass the address of a local
-            // nint containing the ANativeWindow handle, not the handle as a pointer.
-            nint window = nativeWindow;
-
+            // VkAndroidSurfaceCreateInfoKHR.window is ANativeWindow*.
+            // Silk.NET represents that native pointer as nint*, so pass the
+            // ANativeWindow handle itself (not the address of a local pointer).
             var createInfo = new AndroidSurfaceCreateInfoKHR
             {
                 SType = StructureType.AndroidSurfaceCreateInfoKhr,
-                Window = &window,
+                Window = (nint*)nativeWindow,
             };
 
             androidSurface.CreateAndroidSurface(instance, &createInfo, null, out SurfaceKHR surface).ThrowOnError();
