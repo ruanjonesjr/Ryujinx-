@@ -239,6 +239,23 @@ namespace Ryujinx.Android
             _settingsPage.AddView(description, new LinearLayout.LayoutParams(-1, 32));
 
             var preferences = GetSharedPreferences("ryujinx_android", FileCreationMode.Private);
+
+            var vulkanCheck = new CheckBox(this)
+            {
+                Text = "Usar Vulkan (experimental)",
+                Checked = preferences.GetBoolean("use_vulkan", false)
+            };
+            vulkanCheck.SetTextColor(global::Android.Graphics.Color.White);
+            _settingsPage.AddView(vulkanCheck);
+
+            var rendererInfo = new TextView(this)
+            {
+                Text = "O núcleo original do Ryujinx usa Vulkan. OpenGL não está implementado como renderizador neste porte Android.",
+                TextSize = 12
+            };
+            rendererInfo.SetTextColor(global::Android.Graphics.Color.Rgb(165, 177, 194));
+            _settingsPage.AddView(rendererInfo, new LinearLayout.LayoutParams(-1, -2));
+
             float[] scales = { 0.5f, 0.75f, 1.0f, 1.25f };
             string[] labels = { "0,5x — Desempenho", "0,75x — Equilibrado", "1,0x — Padrão", "1,25x — Qualidade" };
             float current = preferences.GetFloat("resolution_scale", 0.75f);
@@ -269,11 +286,26 @@ namespace Ryujinx.Android
                 float scale = scales[Math.Max(0, scaleSpinner.SelectedItemPosition)];
                 bool vsync = vsyncCheck.Checked;
                 bool docked = dockedCheck.Checked;
-                preferences.Edit().PutFloat("resolution_scale", scale).PutBoolean("vsync", vsync).PutBoolean("docked_mode", docked).Apply();
+                bool useVulkan = vulkanCheck.Checked;
+                preferences.Edit()
+                    .PutBoolean("use_vulkan", useVulkan)
+                    .PutFloat("resolution_scale", scale)
+                    .PutBoolean("vsync", vsync)
+                    .PutBoolean("docked_mode", docked)
+                    .Apply();
                 GraphicsConfig.ResScale = scale;
                 _host?.ApplySettings(scale, vsync, docked);
-                _status.Text = "Configurações salvas";
                 ShowHomePage();
+
+                if (useVulkan)
+                {
+                    if (_surfaceReady) StartVulkanHost();
+                    else _status.Text = "Vulkan ativado. Aguarde a superfície Android ficar pronta.";
+                }
+                else
+                {
+                    _status.Text = "Vulkan desativado. O aplicativo permanece na biblioteca.";
+                }
             };
             _settingsPage.AddView(apply, new LinearLayout.LayoutParams(-1, 48));
 
@@ -603,13 +635,11 @@ namespace Ryujinx.Android
             _surfaceHolder = holder;
             _surfaceReady = true;
             Interlocked.Increment(ref _surfaceGeneration);
-            _status.Text = string.IsNullOrWhiteSpace(_previousVulkanStage)
-                ? "Ryujinx"
-                : "Última tentativa Vulkan: " + _previousVulkanStage;
-            // Start the renderer automatically when Android reports a valid surface.
-            // The initialization guard below prevents overlapping renderer instances.
-            if (Interlocked.CompareExchange(ref _autoStartRequested, 1, 0) == 0)
-                _ = Task.Delay(350).ContinueWith(_ => RunOnUiThread(StartVulkanHost));
+            bool useVulkan = GetSharedPreferences("ryujinx_android", FileCreationMode.Private)
+                .GetBoolean("use_vulkan", false);
+            _status.Text = useVulkan
+                ? "Tela pronta. Inicie o Vulkan em Configurações."
+                : "Biblioteca pronta. Escolha o renderizador em Configurações.";
         }
 
         private void StartVulkanHost()
@@ -742,6 +772,7 @@ namespace Ryujinx.Android
             if (host == null)
             {
                 _pendingGame = path;
+                _status.Text = "Jogo selecionado. Ative Vulkan em Configurações para iniciar o motor.";
                 return;
             }
 
