@@ -129,8 +129,8 @@ namespace Ryujinx.Android
                 Visibility = global::Android.Views.ViewStates.Gone
             };
             _topPanel.AddView(_importProgress, new LinearLayout.LayoutParams(-1, 5));
-            var topParams = new FrameLayout.LayoutParams(-1, -2, GravityFlags.Center);
-            topParams.SetMargins(20, 20, 20, 20);
+            var topParams = new FrameLayout.LayoutParams(-1, -2, GravityFlags.Top);
+            topParams.SetMargins(14, 14, 14, 0);
             root.AddView(_topPanel, topParams);
 
             _bottomPanel = new LinearLayout(this) { Orientation = Orientation.Vertical };
@@ -589,7 +589,21 @@ namespace Ryujinx.Android
             // Only one automatic attempt per Activity instance. Surface recreation must
             // never recursively trigger another Vulkan initialization.
             if (Interlocked.CompareExchange(ref _autoStartRequested, 1, 0) == 0)
-                _ = Task.Delay(350).ContinueWith(_ => RunOnUiThread(StartVulkanHost));
+            {
+                var startupPrefs = GetSharedPreferences("ryujinx_android", FileCreationMode.Private);
+                // Persist the attempt before entering native Vulkan code. If a driver
+                // crash kills the process, the next launch stays in the UI instead of
+                // repeating the same fatal startup path indefinitely.
+                if (!startupPrefs.GetBoolean("vulkan_autostart_attempted", false))
+                {
+                    startupPrefs.Edit().PutBoolean("vulkan_autostart_attempted", true).Apply();
+                    _ = Task.Delay(350).ContinueWith(_ => RunOnUiThread(StartVulkanHost));
+                }
+                else
+                {
+                    _status.Text = "Motor aguardando ativação manual";
+                }
+            }
         }
 
         private void ToggleVulkanHost()
@@ -689,6 +703,8 @@ namespace Ryujinx.Android
 
                 _host = host;
                 Interlocked.CompareExchange(ref _pendingNativeWindow, 0, nativeWindow);
+                GetSharedPreferences("ryujinx_android", FileCreationMode.Private)
+                    .Edit().PutBoolean("vulkan_autostart_attempted", false).Apply();
                 host.Resize(_surfaceWidth, _surfaceHeight);
                 _status.Text = "Motor ativo";
                 RunOnUiThread(() => { if (_engineToggleButton != null) _engineToggleButton.Text = "DESLIGAR MOTOR"; });
