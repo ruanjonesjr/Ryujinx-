@@ -40,7 +40,10 @@ namespace Ryujinx.Android
         private SurfaceView _surfaceView;
         private TextView _status;
         private Button _engineToggleButton;
+        private FrameLayout _rootLayout;
+        private LinearLayout _settingsPage;
         private ProgressBar _importProgress;
+        private int _autoStartRequested;
         private LinearLayout _bottomPanel;
         private LinearLayout _topPanel;
         private volatile bool _isImporting;
@@ -72,6 +75,7 @@ namespace Ryujinx.Android
                 Window.AddFlags(WindowManagerFlags.KeepScreenOn);
 
             var root = new FrameLayout(this);
+            _rootLayout = root;
 
             _surfaceView = new SurfaceView(this);
             _surfaceView.Holder.AddCallback(this);
@@ -85,8 +89,7 @@ namespace Ryujinx.Android
             var keysButton = new Button(this) { Text = "PROD.KEYS" };
             var firmwareButton = new Button(this) { Text = "FIRMWARE" };
             var settingsButton = new Button(this) { Text = "CONFIGURAÇÕES" };
-            _engineToggleButton = new Button(this) { Text = "DESLIGAR MOTOR" };
-            foreach (var button in new[] { gameButton, keysButton, firmwareButton, settingsButton, _engineToggleButton })
+            foreach (var button in new[] { gameButton, keysButton, firmwareButton, settingsButton })
             {
                 button.SetTextSize(global::Android.Util.ComplexUnitType.Sp, 10f);
                 button.SetMinimumHeight(38);
@@ -95,21 +98,19 @@ namespace Ryujinx.Android
 
             _status = new TextView(this)
             {
-                Text = "Inicializando Ryujinx Android...",
+                Text = "Ryujinx pronto",
                 Gravity = GravityFlags.CenterVertical,
-                TextSize = 11
+                TextSize = 12
             };
             _status.SetTextColor(global::Android.Graphics.Color.White);
             gameButton.Click += (_, _) => PickFile(PickGameRequest, "*/*", "game");
             keysButton.Click += (_, _) => PickFile(PickKeysRequest, "*/*", "keys");
             firmwareButton.Click += (_, _) => PickFile(PickFirmwareRequest, "application/zip", "firmware");
-            settingsButton.Click += (_, _) => ShowPerformanceSettings();
-            _engineToggleButton.Click += (_, _) => ToggleVulkanHost();
+            settingsButton.Click += (_, _) => ShowSettingsPage();
             controls.AddView(gameButton, new LinearLayout.LayoutParams(0, 42, 1));
             controls.AddView(keysButton, new LinearLayout.LayoutParams(0, 42, 1));
             controls.AddView(firmwareButton, new LinearLayout.LayoutParams(0, 42, 1));
-            controls.AddView(settingsButton, new LinearLayout.LayoutParams(0, 42, 1));
-            controls.AddView(_engineToggleButton, new LinearLayout.LayoutParams(0, 42, 1));
+            controls.AddView(settingsButton, new LinearLayout.LayoutParams(0, 46, 1));
             var brand = new TextView(this) { Text = "RYUJINX", TextSize = 26, Gravity = GravityFlags.Center };
             brand.SetTextColor(global::Android.Graphics.Color.White);
             brand.SetTypeface(null, global::Android.Graphics.TypefaceStyle.Bold);
@@ -181,7 +182,7 @@ namespace Ryujinx.Android
                 GetSharedPreferences("ryujinx_android", FileCreationMode.Private)
                     .Edit().Remove("last_game").Apply();
             }
-                _status.Text = "Aguardando superfície Vulkan...";
+                _status.Text = "Biblioteca pronta";
             }
             catch (Exception ex)
             {
@@ -205,61 +206,83 @@ namespace Ryujinx.Android
             }
         }
 
-        private void ShowPerformanceSettings()
+        private void ShowSettingsPage()
         {
-            float[] scales = { 0.5f, 0.75f, 1.0f, 1.25f };
-            string[] labels = { "0,5x - desempenho", "0,75x - equilibrado", "1,0x - padrão", "1,25x - qualidade" };
+            if (_settingsPage != null)
+            {
+                _settingsPage.Visibility = global::Android.Views.ViewStates.Visible;
+                _topPanel.Visibility = global::Android.Views.ViewStates.Gone;
+                return;
+            }
+
+            _settingsPage = new LinearLayout(this) { Orientation = Orientation.Vertical };
+            _settingsPage.SetPadding(28, 22, 28, 22);
+            _settingsPage.SetBackgroundColor(global::Android.Graphics.Color.Rgb(18, 22, 29));
+
+            var heading = new TextView(this) { Text = "CONFIGURAÇÕES", TextSize = 24, Gravity = GravityFlags.CenterVertical };
+            heading.SetTextColor(global::Android.Graphics.Color.White);
+            heading.SetTypeface(null, global::Android.Graphics.TypefaceStyle.Bold);
+            _settingsPage.AddView(heading, new LinearLayout.LayoutParams(-1, 54));
+
+            var description = new TextView(this) { Text = "Desempenho e funcionamento do emulador", TextSize = 13 };
+            description.SetTextColor(global::Android.Graphics.Color.Rgb(165, 177, 194));
+            _settingsPage.AddView(description, new LinearLayout.LayoutParams(-1, 32));
+
             var preferences = GetSharedPreferences("ryujinx_android", FileCreationMode.Private);
+            float[] scales = { 0.5f, 0.75f, 1.0f, 1.25f };
+            string[] labels = { "0,5x — Desempenho", "0,75x — Equilibrado", "1,0x — Padrão", "1,25x — Qualidade" };
             float current = preferences.GetFloat("resolution_scale", 0.75f);
             int selected = Array.IndexOf(scales, current);
             if (selected < 0) selected = 1;
 
-            var content = new LinearLayout(this) { Orientation = Orientation.Vertical };
-            content.SetPadding(32, 12, 32, 0);
+            var scaleLabel = new TextView(this) { Text = "Resolução interna", TextSize = 15 };
+            scaleLabel.SetTextColor(global::Android.Graphics.Color.White);
+            _settingsPage.AddView(scaleLabel, new LinearLayout.LayoutParams(-1, 34));
 
-            var scaleLabel = new TextView(this) { Text = "Resolução interna", TextSize = 14 };
-            content.AddView(scaleLabel);
             var scaleSpinner = new Spinner(this);
             var adapter = new ArrayAdapter<string>(this, global::Android.Resource.Layout.SimpleSpinnerItem, labels);
             adapter.SetDropDownViewResource(global::Android.Resource.Layout.SimpleSpinnerDropDownItem);
             scaleSpinner.Adapter = adapter;
             scaleSpinner.SetSelection(selected);
-            content.AddView(scaleSpinner);
+            _settingsPage.AddView(scaleSpinner, new LinearLayout.LayoutParams(-1, 48));
 
-            var vsyncCheck = new CheckBox(this)
+            var vsyncCheck = new CheckBox(this) { Text = "VSync", Checked = preferences.GetBoolean("vsync", true) };
+            var dockedCheck = new CheckBox(this) { Text = "Modo Dock (maior carga gráfica)", Checked = preferences.GetBoolean("docked_mode", false) };
+            vsyncCheck.SetTextColor(global::Android.Graphics.Color.White);
+            dockedCheck.SetTextColor(global::Android.Graphics.Color.White);
+            _settingsPage.AddView(vsyncCheck);
+            _settingsPage.AddView(dockedCheck);
+
+            _engineToggleButton = new Button(this) { Text = _host == null ? "ATIVAR MOTOR" : "DESLIGAR MOTOR" };
+            _engineToggleButton.Click += (_, _) => ToggleVulkanHost();
+            _settingsPage.AddView(_engineToggleButton, new LinearLayout.LayoutParams(-1, 48));
+
+            var apply = new Button(this) { Text = "SALVAR CONFIGURAÇÕES" };
+            apply.Click += (_, _) =>
             {
-                Text = "VSync (reduz cortes na imagem)",
-                Checked = preferences.GetBoolean("vsync", true)
+                float scale = scales[Math.Max(0, scaleSpinner.SelectedItemPosition)];
+                bool vsync = vsyncCheck.Checked;
+                bool docked = dockedCheck.Checked;
+                preferences.Edit().PutFloat("resolution_scale", scale).PutBoolean("vsync", vsync).PutBoolean("docked_mode", docked).Apply();
+                GraphicsConfig.ResScale = scale;
+                _host?.ApplySettings(scale, vsync, docked);
+                _status.Text = "Configurações salvas";
+                ShowHomePage();
             };
-            content.AddView(vsyncCheck);
+            _settingsPage.AddView(apply, new LinearLayout.LayoutParams(-1, 48));
 
-            var dockedCheck = new CheckBox(this)
-            {
-                Text = "Modo Dock (maior carga no aparelho)",
-                Checked = preferences.GetBoolean("docked_mode", false)
-            };
-            content.AddView(dockedCheck);
+            var back = new Button(this) { Text = "VOLTAR À BIBLIOTECA" };
+            back.Click += (_, _) => ShowHomePage();
+            _settingsPage.AddView(back, new LinearLayout.LayoutParams(-1, 48));
 
-            new AlertDialog.Builder(this)
-                .SetTitle("Configurações de desempenho")
-                .SetView(content)
-                .SetNegativeButton("Cancelar", (_, _) => { })
-                .SetPositiveButton("Aplicar", (_, _) =>
-                {
-                    float scale = scales[Math.Max(0, scaleSpinner.SelectedItemPosition)];
-                    bool vsync = vsyncCheck.Checked;
-                    bool docked = dockedCheck.Checked;
-                    preferences.Edit()
-                        .PutFloat("resolution_scale", scale)
-                        .PutBoolean("vsync", vsync)
-                        .PutBoolean("docked_mode", docked)
-                        .Apply();
+            _rootLayout.AddView(_settingsPage, new FrameLayout.LayoutParams(-1, -1));
+            _topPanel.Visibility = global::Android.Views.ViewStates.Gone;
+        }
 
-                    GraphicsConfig.ResScale = scale;
-                    _host?.ApplySettings(scale, vsync, docked);
-                    _status.Text = $"Configuração aplicada: {scale:0.00}x | {(docked ? "Dock" : "Handheld")}.";
-                })
-                .Show();
+        private void ShowHomePage()
+        {
+            if (_settingsPage != null) _settingsPage.Visibility = global::Android.Views.ViewStates.Gone;
+            _topPanel.Visibility = global::Android.Views.ViewStates.Visible;
         }
 
         public override bool OnKeyDown(global::Android.Views.Keycode keyCode, KeyEvent e)
@@ -562,8 +585,11 @@ namespace Ryujinx.Android
             _surfaceHolder = holder;
             _surfaceReady = true;
             Interlocked.Increment(ref _surfaceGeneration);
-            _status.Text = "Tela pronta. Iniciando o motor Vulkan automaticamente...";
-            _ = Task.Delay(300).ContinueWith(_ => RunOnUiThread(StartVulkanHost));
+            _status.Text = "Ryujinx";
+            // Only one automatic attempt per Activity instance. Surface recreation must
+            // never recursively trigger another Vulkan initialization.
+            if (Interlocked.CompareExchange(ref _autoStartRequested, 1, 0) == 0)
+                _ = Task.Delay(350).ContinueWith(_ => RunOnUiThread(StartVulkanHost));
         }
 
         private void ToggleVulkanHost()
@@ -582,7 +608,7 @@ namespace Ryujinx.Android
             }
 
             _host = null;
-            _status.Text = "Desligando o motor Vulkan...";
+            _status.Text = "Motor desligado";
             _engineToggleButton.Text = "AGUARDE...";
             _ = Task.Run(() =>
             {
@@ -664,7 +690,7 @@ namespace Ryujinx.Android
                 _host = host;
                 Interlocked.CompareExchange(ref _pendingNativeWindow, 0, nativeWindow);
                 host.Resize(_surfaceWidth, _surfaceHeight);
-                _status.Text = "Motor Vulkan ativo. Importe prod.keys e selecione um jogo.";
+                _status.Text = "Motor ativo";
                 RunOnUiThread(() => { if (_engineToggleButton != null) _engineToggleButton.Text = "DESLIGAR MOTOR"; });
 
                 string pendingFirmware = _pendingFirmware;
@@ -758,7 +784,7 @@ namespace Ryujinx.Android
             }
             catch { }
 
-            _status.Text = "Falha ao iniciar Vulkan. Toque para ver detalhes.";
+            _status.Text = "Vulkan indisponível neste momento";
             if (_engineToggleButton != null) _engineToggleButton.Text = "TENTAR NOVAMENTE";
             _status.Click -= ShowVulkanErrorDetails;
             _status.Click += ShowVulkanErrorDetails;
