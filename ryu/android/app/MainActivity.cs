@@ -52,6 +52,7 @@ namespace Ryujinx.Android
         private volatile AndroidHost _host;
         private string _pendingAction;
         private volatile bool _surfaceReady;
+        private volatile bool _vulkanRequested;
         private ISurfaceHolder _surfaceHolder;
         private int _surfaceGeneration;
         private int _surfaceWidth;
@@ -293,7 +294,7 @@ namespace Ryujinx.Android
             _settingsPage.AddView(dockedCheck);
 
             var apply = new Button(this) { Text = "SALVAR CONFIGURAÇÕES" };
-            apply.Click += (_, _) =>
+            apply.Click += async (_, _) =>
             {
                 float scale = scales[Math.Max(0, scaleSpinner.SelectedItemPosition)];
                 bool vsync = vsyncCheck.Checked;
@@ -311,11 +312,14 @@ namespace Ryujinx.Android
 
                 if (useVulkan)
                 {
+                    _vulkanRequested = true;
                     if (_surfaceReady) StartVulkanHost();
                     else _status.Text = "Vulkan ativado. Aguarde a superfície Android ficar pronta.";
                 }
                 else
                 {
+                    _vulkanRequested = false;
+                    await StopVulkanHostAsync();
                     _status.Text = "Vulkan desativado. O aplicativo permanece na biblioteca.";
                 }
             };
@@ -703,8 +707,21 @@ namespace Ryujinx.Android
                 : "Biblioteca pronta. Escolha o renderizador em Configurações.";
         }
 
+        private async Task StopVulkanHostAsync()
+        {
+            AndroidHost host = _host;
+            _host = null;
+            if (host != null)
+            {
+                _status.Text = "Encerrando motor Vulkan...";
+                await Task.Run(host.Stop);
+            }
+            if (!_vulkanRequested) _status.Text = "Motor Vulkan encerrado.";
+        }
+
         private void StartVulkanHost()
         {
+            _vulkanRequested = true;
             if (_host != null)
             {
                 _status.Text = "Motor Vulkan já está inicializado.";
@@ -761,7 +778,7 @@ namespace Ryujinx.Android
                 WriteVulkanStage("HOST: iniciando construtor AndroidHost");
                 host = await Task.Run(() => new AndroidHost(this, nativeWindow));
                 WriteVulkanStage("HOST: construtor concluído");
-                if (!_surfaceReady || generation != Volatile.Read(ref _surfaceGeneration))
+                if (!_vulkanRequested || !_surfaceReady || generation != Volatile.Read(ref _surfaceGeneration))
                 {
                     Interlocked.CompareExchange(ref _pendingNativeWindow, 0, nativeWindow);
                     await Task.Run(host.Stop);
