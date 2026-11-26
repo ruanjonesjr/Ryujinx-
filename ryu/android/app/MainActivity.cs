@@ -39,6 +39,7 @@ namespace Ryujinx.Android
 
         private SurfaceView _surfaceView;
         private TextView _status;
+        private Button _engineToggleButton;
         private ProgressBar _importProgress;
         private LinearLayout _bottomPanel;
         private LinearLayout _topPanel;
@@ -83,9 +84,9 @@ namespace Ryujinx.Android
             var gameButton = new Button(this) { Text = "ABRIR JOGO" };
             var keysButton = new Button(this) { Text = "PROD.KEYS" };
             var firmwareButton = new Button(this) { Text = "FIRMWARE" };
-            var settingsButton = new Button(this) { Text = "GRÁFICOS" };
-            var startEngineButton = new Button(this) { Text = "INICIAR MOTOR" };
-            foreach (var button in new[] { gameButton, keysButton, firmwareButton, settingsButton, startEngineButton })
+            var settingsButton = new Button(this) { Text = "CONFIGURAÇÕES" };
+            _engineToggleButton = new Button(this) { Text = "DESLIGAR MOTOR" };
+            foreach (var button in new[] { gameButton, keysButton, firmwareButton, settingsButton, _engineToggleButton })
             {
                 button.SetTextSize(global::Android.Util.ComplexUnitType.Sp, 10f);
                 button.SetMinimumHeight(38);
@@ -103,12 +104,12 @@ namespace Ryujinx.Android
             keysButton.Click += (_, _) => PickFile(PickKeysRequest, "*/*", "keys");
             firmwareButton.Click += (_, _) => PickFile(PickFirmwareRequest, "application/zip", "firmware");
             settingsButton.Click += (_, _) => ShowPerformanceSettings();
-            startEngineButton.Click += (_, _) => StartVulkanHost();
+            _engineToggleButton.Click += (_, _) => ToggleVulkanHost();
             controls.AddView(gameButton, new LinearLayout.LayoutParams(0, 42, 1));
             controls.AddView(keysButton, new LinearLayout.LayoutParams(0, 42, 1));
             controls.AddView(firmwareButton, new LinearLayout.LayoutParams(0, 42, 1));
             controls.AddView(settingsButton, new LinearLayout.LayoutParams(0, 42, 1));
-            controls.AddView(startEngineButton, new LinearLayout.LayoutParams(0, 42, 1));
+            controls.AddView(_engineToggleButton, new LinearLayout.LayoutParams(0, 42, 1));
             var brand = new TextView(this) { Text = "RYUJINX", TextSize = 26, Gravity = GravityFlags.Center };
             brand.SetTextColor(global::Android.Graphics.Color.White);
             brand.SetTypeface(null, global::Android.Graphics.TypefaceStyle.Bold);
@@ -557,13 +558,46 @@ namespace Ryujinx.Android
 
         public void SurfaceCreated(ISurfaceHolder holder)
         {
-            // Do not call into the native/JNI bridge from SurfaceCreated.
-            // Some Android runtimes invalidate the Surface peer during callback
-            // setup; defer ANativeWindow acquisition until the user starts Vulkan.
+            // Defer JNI/ANativeWindow access until the Surface callback has returned.
             _surfaceHolder = holder;
             _surfaceReady = true;
             Interlocked.Increment(ref _surfaceGeneration);
-            _status.Text = "Tela pronta. O aplicativo está aberto; toque em INICIAR MOTOR para iniciar Vulkan.";
+            _status.Text = "Tela pronta. Iniciando o motor Vulkan automaticamente...";
+            _ = Task.Delay(300).ContinueWith(_ => RunOnUiThread(StartVulkanHost));
+        }
+
+        private void ToggleVulkanHost()
+        {
+            AndroidHost host = _host;
+            if (host == null)
+            {
+                StartVulkanHost();
+                return;
+            }
+
+            if (Interlocked.CompareExchange(ref _hostInitializationInProgress, 1, 0) != 0)
+            {
+                _status.Text = "Aguarde a operação atual do motor terminar.";
+                return;
+            }
+
+            _host = null;
+            _status.Text = "Desligando o motor Vulkan...";
+            _engineToggleButton.Text = "AGUARDE...";
+            _ = Task.Run(() =>
+            {
+                try { host.Stop(); }
+                finally
+                {
+                    Interlocked.Exchange(ref _hostInitializationInProgress, 0);
+                    RunOnUiThread(() =>
+                    {
+                        if (!_surfaceReady) return;
+                        _engineToggleButton.Text = "ATIVAR MOTOR";
+                        _status.Text = "Motor Vulkan desligado.";
+                    });
+                }
+            });
         }
 
         private void StartVulkanHost()
@@ -598,7 +632,7 @@ namespace Ryujinx.Android
 
                 int generation = Volatile.Read(ref _surfaceGeneration);
                 Interlocked.Exchange(ref _pendingNativeWindow, nativeWindow);
-                _status.Text = "Inicializando Vulkan sob solicitação...";
+                _status.Text = "Inicializando motor Vulkan...";
                 _ = InitializeHostAsync(nativeWindow, generation);
             }
             catch (Exception ex)
@@ -630,7 +664,8 @@ namespace Ryujinx.Android
                 _host = host;
                 Interlocked.CompareExchange(ref _pendingNativeWindow, 0, nativeWindow);
                 host.Resize(_surfaceWidth, _surfaceHeight);
-                _status.Text = "Vulkan inicializado. Importe prod.keys e selecione um jogo.";
+                _status.Text = "Motor Vulkan ativo. Importe prod.keys e selecione um jogo.";
+                RunOnUiThread(() => { if (_engineToggleButton != null) _engineToggleButton.Text = "DESLIGAR MOTOR"; });
 
                 string pendingFirmware = _pendingFirmware;
                 if (!string.IsNullOrEmpty(pendingFirmware) &&
@@ -724,6 +759,7 @@ namespace Ryujinx.Android
             catch { }
 
             _status.Text = "Falha ao iniciar Vulkan. Toque para ver detalhes.";
+            if (_engineToggleButton != null) _engineToggleButton.Text = "TENTAR NOVAMENTE";
             _status.Click -= ShowVulkanErrorDetails;
             _status.Click += ShowVulkanErrorDetails;
             _lastVulkanError = details;
