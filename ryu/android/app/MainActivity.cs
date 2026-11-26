@@ -43,6 +43,7 @@ namespace Ryujinx.Android
         private LinearLayout _settingsPage;
         private ProgressBar _importProgress;
         private int _autoStartRequested;
+        private string _previousVulkanStage;
         private LinearLayout _bottomPanel;
         private LinearLayout _topPanel;
         private volatile bool _isImporting;
@@ -185,11 +186,8 @@ namespace Ryujinx.Android
                 if (File.Exists(startupLog))
                 {
                     string[] previousLines = File.ReadAllLines(startupLog);
-                    string previousStage = previousLines.Length > 0 ? previousLines[previousLines.Length - 1] : null;
-                    if (!string.IsNullOrWhiteSpace(previousStage))
-                        _status.Text = "Última tentativa Vulkan: " + previousStage;
-                    else
-                        _status.Text = "Biblioteca pronta";
+                    _previousVulkanStage = previousLines.Length > 0 ? previousLines[previousLines.Length - 1] : null;
+                    _status.Text = "Biblioteca pronta";
                 }
                 else
                 {
@@ -605,7 +603,9 @@ namespace Ryujinx.Android
             _surfaceHolder = holder;
             _surfaceReady = true;
             Interlocked.Increment(ref _surfaceGeneration);
-            _status.Text = "Ryujinx";
+            _status.Text = string.IsNullOrWhiteSpace(_previousVulkanStage)
+                ? "Ryujinx"
+                : "Última tentativa Vulkan: " + _previousVulkanStage;
             // Start the renderer automatically when Android reports a valid surface.
             // The initialization guard below prevents overlapping renderer instances.
             if (Interlocked.CompareExchange(ref _autoStartRequested, 1, 0) == 0)
