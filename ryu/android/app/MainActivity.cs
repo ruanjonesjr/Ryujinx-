@@ -90,7 +90,7 @@ namespace Ryujinx.Android
             _topPanel.SetPadding(22, 18, 22, 14);
 
             var topBar = new LinearLayout(this) { Orientation = Orientation.Horizontal };
-            topBar.Gravity = GravityFlags.CenterVertical;
+            topBar.SetGravity(GravityFlags.CenterVertical);
             var brand = new TextView(this) { Text = "RYUJINX", TextSize = 25, Gravity = GravityFlags.CenterVertical };
             brand.SetTextColor(global::Android.Graphics.Color.Rgb(35, 42, 52));
             brand.SetTypeface(null, global::Android.Graphics.TypefaceStyle.Bold);
@@ -106,7 +106,7 @@ namespace Ryujinx.Android
             _topPanel.AddView(subtitle, new LinearLayout.LayoutParams(-1, 28));
 
             var libraryHeading = new LinearLayout(this) { Orientation = Orientation.Horizontal };
-            libraryHeading.Gravity = GravityFlags.CenterVertical;
+            libraryHeading.SetGravity(GravityFlags.CenterVertical);
             var libraryTitle = new TextView(this) { Text = "JOGOS", TextSize = 17, Gravity = GravityFlags.CenterVertical };
             libraryTitle.SetTextColor(global::Android.Graphics.Color.Rgb(42, 48, 58));
             libraryTitle.SetTypeface(null, global::Android.Graphics.TypefaceStyle.Bold);
@@ -146,7 +146,7 @@ namespace Ryujinx.Android
             _topPanel.AddView(separator, new LinearLayout.LayoutParams(-1, 1));
 
             var nav = new LinearLayout(this) { Orientation = Orientation.Horizontal };
-            nav.Gravity = GravityFlags.Center;
+            nav.SetGravity(GravityFlags.Center);
             AddHomeAction(nav, "🎮", "JOGOS", () => { _status.Text = "Biblioteca de jogos"; });
             AddHomeAction(nav, "📁", "ARQUIVOS", () => PickFile(PickGameRequest, "*/*", "game"));
             AddHomeAction(nav, "🔑", "PROD.KEYS", () => PickFile(PickKeysRequest, "*/*", "keys"));
@@ -256,7 +256,7 @@ namespace Ryujinx.Android
 
             // Header fixo com navegação visível no topo da tela de configurações.
             var header = new LinearLayout(this) { Orientation = Orientation.Horizontal };
-            header.Gravity = GravityFlags.CenterVertical;
+            header.SetGravity(GravityFlags.CenterVertical);
 
             var backTop = new Button(this) { Text = "‹ VOLTAR" };
             backTop.Click += (_, _) => ShowHomePage();
@@ -669,7 +669,7 @@ namespace Ryujinx.Android
             if (games.Length == 0)
             {
                 var emptyCard = new LinearLayout(this) { Orientation = Orientation.Vertical };
-                emptyCard.Gravity = GravityFlags.Center;
+                emptyCard.SetGravity(GravityFlags.Center);
                 emptyCard.SetPadding(18, 18, 18, 18);
                 emptyCard.SetBackgroundColor(global::Android.Graphics.Color.White);
                 var emptyIcon = new TextView(this) { Text = "＋", TextSize = 42, Gravity = GravityFlags.Center };
@@ -704,11 +704,12 @@ namespace Ryujinx.Android
                 {
                     Text = name,
                     TextSize = 16,
-                    Gravity = GravityFlags.Center,
-                    MaxLines = 4
+                    Gravity = GravityFlags.Center
+                
                 };
                 coverTitle.SetTextColor(global::Android.Graphics.Color.Rgb(43, 51, 62));
                 coverTitle.SetTypeface(null, global::Android.Graphics.TypefaceStyle.Bold);
+                coverTitle.SetMaxLines(4);
                 cover.AddView(coverTitle, new FrameLayout.LayoutParams(-1, -1));
                 card.AddView(cover, new LinearLayout.LayoutParams(-1, 142));
 
@@ -716,10 +717,11 @@ namespace Ryujinx.Android
                 {
                     Text = name,
                     TextSize = 12,
-                    Gravity = GravityFlags.CenterVertical,
-                    MaxLines = 1,
+                    Gravity = GravityFlags.CenterVertical
+                
                     Ellipsize = global::Android.Text.TextUtils.TruncateAt.End
                 };
+                title.SetMaxLines(1);
                 title.SetTextColor(global::Android.Graphics.Color.Rgb(42, 48, 58));
                 title.SetTypeface(null, global::Android.Graphics.TypefaceStyle.Bold);
                 card.AddView(title, new LinearLayout.LayoutParams(-1, 30));
@@ -769,7 +771,7 @@ namespace Ryujinx.Android
         private void AddHomeAction(LinearLayout row, string symbol, string label, Action action)
         {
             var button = new LinearLayout(this) { Orientation = Orientation.Vertical };
-            button.Gravity = GravityFlags.Center;
+            button.SetGravity(GravityFlags.Center);
             var circle = new TextView(this)
             {
                 Text = symbol,
