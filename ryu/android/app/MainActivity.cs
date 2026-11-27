@@ -242,10 +242,26 @@ namespace Ryujinx.Android
             _settingsPage.SetPadding(28, 22, 28, 22);
             _settingsPage.SetBackgroundColor(global::Android.Graphics.Color.Rgb(18, 22, 29));
 
-            var heading = new TextView(this) { Text = "CONFIGURAÇÕES", TextSize = 24, Gravity = GravityFlags.CenterVertical };
+            // Header fixo com navegação visível no topo da tela de configurações.
+            var header = new LinearLayout(this) { Orientation = Orientation.Horizontal };
+            header.Gravity = GravityFlags.CenterVertical;
+
+            var backTop = new Button(this) { Text = "‹ VOLTAR" };
+            backTop.Click += (_, _) => ShowHomePage();
+            header.AddView(backTop, new LinearLayout.LayoutParams(-2, 48));
+
+            var heading = new TextView(this)
+            {
+                Text = "CONFIGURAÇÕES",
+                TextSize = 21,
+                Gravity = GravityFlags.CenterVertical
+            };
             heading.SetTextColor(global::Android.Graphics.Color.White);
             heading.SetTypeface(null, global::Android.Graphics.TypefaceStyle.Bold);
-            _settingsPage.AddView(heading, new LinearLayout.LayoutParams(-1, 54));
+            var headingParams = new LinearLayout.LayoutParams(0, 54, 1);
+            headingParams.LeftMargin = 12;
+            header.AddView(heading, headingParams);
+            _settingsPage.AddView(header, new LinearLayout.LayoutParams(-1, 58));
 
             var description = new TextView(this) { Text = "Desempenho e funcionamento do emulador", TextSize = 13 };
             description.SetTextColor(global::Android.Graphics.Color.Rgb(165, 177, 194));
@@ -337,6 +353,19 @@ namespace Ryujinx.Android
         {
             if (_settingsPage != null) _settingsPage.Visibility = global::Android.Views.ViewStates.Gone;
             _topPanel.Visibility = global::Android.Views.ViewStates.Visible;
+        }
+
+        public override void OnBackPressed()
+        {
+            // O botão Voltar do Android retorna à biblioteca quando as configurações estão abertas.
+            if (_settingsPage != null &&
+                _settingsPage.Visibility == global::Android.Views.ViewStates.Visible)
+            {
+                ShowHomePage();
+                return;
+            }
+
+            base.OnBackPressed();
         }
 
         public override bool OnKeyDown(global::Android.Views.Keycode keyCode, KeyEvent e)
