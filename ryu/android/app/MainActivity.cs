@@ -84,65 +84,77 @@ namespace Ryujinx.Android
             _surfaceView.Holder.AddCallback(this);
             root.AddView(_surfaceView, new FrameLayout.LayoutParams(-1, -1));
 
+            root.SetBackgroundColor(global::Android.Graphics.Color.Rgb(239, 240, 242));
             _topPanel = new LinearLayout(this) { Orientation = Orientation.Vertical };
-            _topPanel.SetBackgroundColor(global::Android.Graphics.Color.Rgb(25, 29, 36));
-            _topPanel.SetPadding(20, 18, 20, 18);
-            var controls = new LinearLayout(this) { Orientation = Orientation.Horizontal };
-            var gameButton = new Button(this) { Text = "ABRIR JOGO" };
-            var keysButton = new Button(this) { Text = "PROD.KEYS" };
-            var firmwareButton = new Button(this) { Text = "FIRMWARE" };
-            var settingsButton = new Button(this) { Text = "CONFIGURAÇÕES" };
-            foreach (var button in new[] { gameButton, keysButton, firmwareButton, settingsButton })
-            {
-                button.SetTextSize(global::Android.Util.ComplexUnitType.Sp, 10f);
-                button.SetMinimumHeight(38);
-                button.SetPadding(2, 0, 2, 0);
-            }
+            _topPanel.SetBackgroundColor(global::Android.Graphics.Color.Rgb(239, 240, 242));
+            _topPanel.SetPadding(22, 18, 22, 14);
+
+            var topBar = new LinearLayout(this) { Orientation = Orientation.Horizontal };
+            topBar.Gravity = GravityFlags.CenterVertical;
+            var brand = new TextView(this) { Text = "RYUJINX", TextSize = 25, Gravity = GravityFlags.CenterVertical };
+            brand.SetTextColor(global::Android.Graphics.Color.Rgb(35, 42, 52));
+            brand.SetTypeface(null, global::Android.Graphics.TypefaceStyle.Bold);
+            topBar.AddView(brand, new LinearLayout.LayoutParams(0, 48, 1));
+            var settingsButton = new Button(this) { Text = "⚙" };
+            settingsButton.SetTextSize(global::Android.Util.ComplexUnitType.Sp, 20f);
+            settingsButton.Click += (_, _) => ShowSettingsPage();
+            topBar.AddView(settingsButton, new LinearLayout.LayoutParams(54, 48));
+            _topPanel.AddView(topBar);
+
+            var subtitle = new TextView(this) { Text = "SUA BIBLIOTECA DE JOGOS", TextSize = 11, Gravity = GravityFlags.CenterVertical };
+            subtitle.SetTextColor(global::Android.Graphics.Color.Rgb(105, 115, 128));
+            _topPanel.AddView(subtitle, new LinearLayout.LayoutParams(-1, 28));
+
+            var libraryHeading = new LinearLayout(this) { Orientation = Orientation.Horizontal };
+            libraryHeading.Gravity = GravityFlags.CenterVertical;
+            var libraryTitle = new TextView(this) { Text = "JOGOS", TextSize = 17, Gravity = GravityFlags.CenterVertical };
+            libraryTitle.SetTextColor(global::Android.Graphics.Color.Rgb(42, 48, 58));
+            libraryTitle.SetTypeface(null, global::Android.Graphics.TypefaceStyle.Bold);
+            libraryHeading.AddView(libraryTitle, new LinearLayout.LayoutParams(0, 42, 1));
+            var addGameButton = new Button(this) { Text = "+ ADICIONAR" };
+            addGameButton.SetTextSize(global::Android.Util.ComplexUnitType.Sp, 10f);
+            addGameButton.Click += (_, _) => PickFile(PickGameRequest, "*/*", "game");
+            libraryHeading.AddView(addGameButton, new LinearLayout.LayoutParams(-2, 40));
+            _topPanel.AddView(libraryHeading);
+
+            var libraryScroll = new HorizontalScrollView(this) { HorizontalScrollBarEnabled = false };
+            _gameList = new LinearLayout(this) { Orientation = Orientation.Horizontal };
+            libraryScroll.AddView(_gameList, new global::Android.Views.ViewGroup.LayoutParams(-2, -1));
+            _topPanel.AddView(libraryScroll, new LinearLayout.LayoutParams(-1, 218));
 
             _status = new TextView(this)
             {
-                Text = "Ryujinx pronto",
+                Text = "Biblioteca pronta",
                 Gravity = GravityFlags.CenterVertical,
-                TextSize = 12
+                TextSize = 11
             };
-            _status.SetTextColor(global::Android.Graphics.Color.White);
-            gameButton.Click += (_, _) => PickFile(PickGameRequest, "*/*", "game");
-            keysButton.Click += (_, _) => PickFile(PickKeysRequest, "*/*", "keys");
-            firmwareButton.Click += (_, _) => PickFile(PickFirmwareRequest, "application/zip", "firmware");
-            settingsButton.Click += (_, _) => ShowSettingsPage();
-            controls.AddView(gameButton, new LinearLayout.LayoutParams(0, 42, 1));
-            controls.AddView(keysButton, new LinearLayout.LayoutParams(0, 42, 1));
-            controls.AddView(firmwareButton, new LinearLayout.LayoutParams(0, 42, 1));
-            controls.AddView(settingsButton, new LinearLayout.LayoutParams(0, 46, 1));
-            var brand = new TextView(this) { Text = "RYUJINX", TextSize = 26, Gravity = GravityFlags.Center };
-            brand.SetTextColor(global::Android.Graphics.Color.White);
-            brand.SetTypeface(null, global::Android.Graphics.TypefaceStyle.Bold);
-            var subtitle = new TextView(this) { Text = "EMULADOR DE CONSOLE • ANDROID", TextSize = 10, Gravity = GravityFlags.Center };
-            subtitle.SetTextColor(global::Android.Graphics.Color.Rgb(170, 180, 195));
-            _topPanel.AddView(brand, new LinearLayout.LayoutParams(-1, 42));
-            _topPanel.AddView(subtitle, new LinearLayout.LayoutParams(-1, 24));
-            var menuSpacer = new View(this);
-            _topPanel.AddView(menuSpacer, new LinearLayout.LayoutParams(1, 12));
-            _topPanel.AddView(controls);
-            _topPanel.AddView(_status, new LinearLayout.LayoutParams(-1, 34));
+            _status.SetTextColor(global::Android.Graphics.Color.Rgb(105, 115, 128));
+            _topPanel.AddView(_status, new LinearLayout.LayoutParams(-1, 30));
             _importProgress = new ProgressBar(this, null, global::Android.Resource.Attribute.ProgressBarStyleHorizontal)
             {
                 Max = 100,
                 Progress = 0,
                 Visibility = global::Android.Views.ViewStates.Gone
             };
-            _topPanel.AddView(_importProgress, new LinearLayout.LayoutParams(-1, 5));
+            _topPanel.AddView(_importProgress, new LinearLayout.LayoutParams(-1, 4));
 
-            var libraryTitle = new TextView(this) { Text = "BIBLIOTECA DE JOGOS", TextSize = 14, Gravity = GravityFlags.CenterVertical };
-            libraryTitle.SetTextColor(global::Android.Graphics.Color.White);
-            libraryTitle.SetTypeface(null, global::Android.Graphics.TypefaceStyle.Bold);
-            _topPanel.AddView(libraryTitle, new LinearLayout.LayoutParams(-1, 38));
-            var libraryScroll = new ScrollView(this);
-            _gameList = new LinearLayout(this) { Orientation = Orientation.Vertical };
-            libraryScroll.AddView(_gameList, new global::Android.Views.ViewGroup.LayoutParams(-1, -2));
-            _topPanel.AddView(libraryScroll, new LinearLayout.LayoutParams(-1, 190));
-            var topParams = new FrameLayout.LayoutParams(-1, -2, GravityFlags.Top);
-            topParams.SetMargins(14, 14, 14, 0);
+            var flexibleSpace = new View(this);
+            _topPanel.AddView(flexibleSpace, new LinearLayout.LayoutParams(1, 0, 1));
+
+            var separator = new View(this);
+            separator.SetBackgroundColor(global::Android.Graphics.Color.Rgb(195, 199, 205));
+            _topPanel.AddView(separator, new LinearLayout.LayoutParams(-1, 1));
+
+            var nav = new LinearLayout(this) { Orientation = Orientation.Horizontal };
+            nav.Gravity = GravityFlags.Center;
+            AddHomeAction(nav, "🎮", "JOGOS", () => { _status.Text = "Biblioteca de jogos"; });
+            AddHomeAction(nav, "📁", "ARQUIVOS", () => PickFile(PickGameRequest, "*/*", "game"));
+            AddHomeAction(nav, "🔑", "PROD.KEYS", () => PickFile(PickKeysRequest, "*/*", "keys"));
+            AddHomeAction(nav, "📦", "FIRMWARE", () => PickFile(PickFirmwareRequest, "application/zip", "firmware"));
+            AddHomeAction(nav, "⚙", "AJUSTES", () => ShowSettingsPage());
+            _topPanel.AddView(nav, new LinearLayout.LayoutParams(-1, 92));
+
+            var topParams = new FrameLayout.LayoutParams(-1, -1, GravityFlags.Fill);
             root.AddView(_topPanel, topParams);
 
             _bottomPanel = new LinearLayout(this) { Orientation = Orientation.Vertical };
@@ -656,28 +668,76 @@ namespace Ryujinx.Android
 
             if (games.Length == 0)
             {
-                var empty = new TextView(this) { Text = "Nenhum jogo importado. Toque em ABRIR JOGO para adicionar arquivos XCI, NSP, NCA ou NRO.", TextSize = 12, Gravity = GravityFlags.CenterVertical };
-                empty.SetTextColor(global::Android.Graphics.Color.Rgb(170, 180, 195));
-                empty.SetPadding(8, 12, 8, 12);
-                _gameList.AddView(empty, new LinearLayout.LayoutParams(-1, 64));
+                var emptyCard = new LinearLayout(this) { Orientation = Orientation.Vertical };
+                emptyCard.Gravity = GravityFlags.Center;
+                emptyCard.SetPadding(18, 18, 18, 18);
+                emptyCard.SetBackgroundColor(global::Android.Graphics.Color.White);
+                var emptyIcon = new TextView(this) { Text = "＋", TextSize = 42, Gravity = GravityFlags.Center };
+                emptyIcon.SetTextColor(global::Android.Graphics.Color.Rgb(155, 164, 175));
+                emptyCard.AddView(emptyIcon, new LinearLayout.LayoutParams(-1, 112));
+                var empty = new TextView(this) { Text = "ADICIONE SEU PRIMEIRO JOGO", TextSize = 11, Gravity = GravityFlags.Center };
+                empty.SetTextColor(global::Android.Graphics.Color.Rgb(92, 103, 117));
+                emptyCard.AddView(empty);
+                emptyCard.Click += (_, _) => PickFile(PickGameRequest, "*/*", "game");
+                _gameList.AddView(emptyCard, new LinearLayout.LayoutParams(190, -1) { RightMargin = 12 });
                 return;
             }
 
-            foreach (string path in games)
+            global::Android.Graphics.Color[] colors =
             {
-                var item = new Button(this)
+                global::Android.Graphics.Color.Rgb(218, 231, 241),
+                global::Android.Graphics.Color.Rgb(245, 226, 205),
+                global::Android.Graphics.Color.Rgb(220, 233, 216),
+                global::Android.Graphics.Color.Rgb(235, 220, 235)
+            };
+
+            for (int i = 0; i < games.Length; i++)
+            {
+                string path = games[i];
+                string name = Path.GetFileNameWithoutExtension(path);
+                var card = new LinearLayout(this) { Orientation = Orientation.Vertical };
+                card.SetBackgroundColor(colors[i % colors.Length]);
+                card.SetPadding(12, 12, 12, 10);
+                var cover = new FrameLayout(this);
+                cover.SetBackgroundColor(colors[(i + 1) % colors.Length]);
+                var coverTitle = new TextView(this)
                 {
-                    Text = Path.GetFileName(path) + "  •  " + (new FileInfo(path).Length / (1024d * 1024d)).ToString("0.0") + " MB",
+                    Text = name,
+                    TextSize = 16,
+                    Gravity = GravityFlags.Center,
+                    MaxLines = 4
+                };
+                coverTitle.SetTextColor(global::Android.Graphics.Color.Rgb(43, 51, 62));
+                coverTitle.SetTypeface(null, global::Android.Graphics.TypefaceStyle.Bold);
+                cover.AddView(coverTitle, new FrameLayout.LayoutParams(-1, -1));
+                card.AddView(cover, new LinearLayout.LayoutParams(-1, 142));
+
+                var title = new TextView(this)
+                {
+                    Text = name,
+                    TextSize = 12,
+                    Gravity = GravityFlags.CenterVertical,
+                    MaxLines = 1,
+                    Ellipsize = global::Android.Text.TextUtils.TruncateAt.End
+                };
+                title.SetTextColor(global::Android.Graphics.Color.Rgb(42, 48, 58));
+                title.SetTypeface(null, global::Android.Graphics.TypefaceStyle.Bold);
+                card.AddView(title, new LinearLayout.LayoutParams(-1, 30));
+
+                var size = new TextView(this)
+                {
+                    Text = (new FileInfo(path).Length / (1024d * 1024d)).ToString("0.0") + " MB  •  TOQUE PARA ABRIR",
+                    TextSize = 9,
                     Gravity = GravityFlags.CenterVertical
                 };
-                item.SetTextSize(global::Android.Util.ComplexUnitType.Sp, 12f);
-                item.SetSingleLine(true);
-                item.Click += async (_, _) => await StartGame(path);
-                item.LongClick += (_, e) =>
+                size.SetTextColor(global::Android.Graphics.Color.Rgb(91, 101, 114));
+                card.AddView(size);
+                card.Click += async (_, _) => await StartGame(path);
+                card.LongClick += (_, e) =>
                 {
                     new AlertDialog.Builder(this)
                         .SetTitle("Remover jogo")
-                        .SetMessage("Excluir " + Path.GetFileName(path) + " do armazenamento do Ryujinx? Esta ação não pode ser desfeita.")
+                        .SetMessage("Excluir " + Path.GetFileName(path) + " da biblioteca? Esta ação não pode ser desfeita.")
                         .SetNegativeButton("Cancelar", (sender, args) => { })
                         .SetPositiveButton("Excluir", (sender, args) =>
                         {
@@ -685,9 +745,9 @@ namespace Ryujinx.Android
                             {
                                 if (string.Equals(_pendingGame, path, StringComparison.Ordinal))
                                     _pendingGame = null;
-                                string lastGame = GetSharedPreferences("ryujinx_android", FileCreationMode.Private)
-                                    .GetString("last_game", null);
-                                var editor = GetSharedPreferences("ryujinx_android", FileCreationMode.Private).Edit();
+                                var prefs = GetSharedPreferences("ryujinx_android", FileCreationMode.Private);
+                                string lastGame = prefs.GetString("last_game", null);
+                                var editor = prefs.Edit();
                                 if (string.Equals(lastGame, path, StringComparison.Ordinal)) editor.Remove("last_game");
                                 editor.Apply();
                                 File.Delete(path);
@@ -702,8 +762,28 @@ namespace Ryujinx.Android
                         .Show();
                     e.Handled = true;
                 };
-                _gameList.AddView(item, new LinearLayout.LayoutParams(-1, 48));
+                _gameList.AddView(card, new LinearLayout.LayoutParams(190, -1) { RightMargin = 12 });
             }
+        }
+
+        private void AddHomeAction(LinearLayout row, string symbol, string label, Action action)
+        {
+            var button = new LinearLayout(this) { Orientation = Orientation.Vertical };
+            button.Gravity = GravityFlags.Center;
+            var circle = new TextView(this)
+            {
+                Text = symbol,
+                TextSize = 23,
+                Gravity = GravityFlags.Center
+            };
+            circle.SetTextColor(global::Android.Graphics.Color.Rgb(74, 83, 96));
+            circle.SetBackgroundColor(global::Android.Graphics.Color.White);
+            button.AddView(circle, new LinearLayout.LayoutParams(54, 54));
+            var caption = new TextView(this) { Text = label, TextSize = 8, Gravity = GravityFlags.Center };
+            caption.SetTextColor(global::Android.Graphics.Color.Rgb(93, 103, 116));
+            button.AddView(caption, new LinearLayout.LayoutParams(-1, 24));
+            button.Click += (_, _) => action();
+            row.AddView(button, new LinearLayout.LayoutParams(0, -1, 1));
         }
 
         private long QuerySize(global::Android.Net.Uri uri)
